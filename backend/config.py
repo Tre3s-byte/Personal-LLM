@@ -1,0 +1,2 @@
+USE_GPU = True
+N_GPU_LAYERS = -1
