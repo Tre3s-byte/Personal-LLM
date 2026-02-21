@@ -1,6 +1,7 @@
 from llama_cpp import Llama
 from pathlib import Path
 
+#This function loads the model and make it available to generate the answers of every request
 _llm = None
 
 
@@ -18,9 +19,9 @@ def get_model():
 
         _llm = Llama(
             model_path=str(model_path),
-            n_gpu_layers=-1,
-            n_ctx=8192,
-            n_batch=1024,
+            n_gpu_layers=20,
+            n_ctx=4096,
+            n_batch=256,
             n_threads=8,
             verbose=False,
         )
