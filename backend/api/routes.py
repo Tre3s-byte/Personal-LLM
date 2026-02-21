@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 from services.inference import run_inference
 from services.router import route_request
 router = APIRouter()
@@ -14,7 +14,7 @@ async def chat(request: Request):
 
     #Message validation (not empty)
     if "messages" not in body:
-        return {"error" : "Missing 'messages' field"}
+        raise HTTPException(status_code=400, detail="Missing 'messages' in request body")
     
     messages = body["messages"]
     
@@ -34,8 +34,12 @@ async def chat(request: Request):
             return {"error" : "'role' and 'content' must be strings"}
     
     routing = route_request(messages)
-    response = run_inference(
-        model_name = routing["model"],
-        messages = messages
-    )
+    model_name = routing["target_model"]
+
+    if routing["needs_chunking"]:
+        #Temporary fallback, chunking is not implemented yet
+        response = run_inference(model_name = model_name, messages=messages)
+    else:
+        response = run_inference(model_name = model_name, messages=messages)
+
     return {"response": response}
