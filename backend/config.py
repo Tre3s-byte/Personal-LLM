@@ -11,17 +11,20 @@ MODEL_LARGE_PATH = "models/qwen2.5-7b-instruct-q5_k_m-00001-of-00002.gguf"
 MODEL_CONFIG = {
     "small":{
         "path": MODEL_SMALL_PATH,
-        "n_gpu_layers": "-1",
+        "n_gpu_layers": -1,
         "n_ctx" : SAFE_CTX_SMALL
     },
     "medium":{
         "path": MODEL_MEDIUM_PATH,
-        "n_gpu_layers": "30",
+        "n_gpu_layers": 30,
         "n_ctx" : SAFE_CTX_MEDIUM
     },
     "large":{
         "path": MODEL_LARGE_PATH,
-        "n_gpu_layers": "20",
+        "n_gpu_layers": 20,
         "n_ctx" : SAFE_CTX_LARGE
     }
 }
+
+ROUTER_LIGHT_THRESHOLD = 800
+ROUTER_HEAVY_THRESHOLD = 1500
