@@ -1,12 +1,10 @@
 from fastapi import FastAPI
-from .routes import router
-from .loader import get_model
+from app.routes import router as app_router
+from api.routes import router as api_router
+
+
 
 app = FastAPI(title="Local LLM API")
 
-app.include_router(router)
-
-
-@app.on_event("startup")
-def load_model():
-    get_model()
+app.include_router(app_router)
+app.include_router(api_router)

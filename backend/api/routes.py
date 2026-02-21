@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Request
-from .inference import generate  # noqa: F401
-
+from services.inference import run_inference
+from services.router import route_request
 router = APIRouter()
 
 #This function work on async in order to not to block the website workflow
 #It will recieve the request, validate the content and call the model to generate the response
+
+
 
 @router.post("/chat")
 async def chat(request: Request):
@@ -31,7 +33,9 @@ async def chat(request: Request):
         if not isinstance(msg["role"], str) or not isinstance(msg["content"], str):
             return {"error" : "'role' and 'content' must be strings"}
     
-    response = generate(messages)
-
+    routing = route_request(messages)
+    response = run_inference(
+        model_name = routing["model"],
+        messages = messages
+    )
     return {"response": response}
-    
