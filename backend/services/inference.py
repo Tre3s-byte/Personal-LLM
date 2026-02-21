@@ -11,8 +11,8 @@ def run_inference(model_name:str, messages:list):
     output = model.create_chat_completion(
         messages = messages,
         max_tokens=1000,
-        temperature=0.5,
-        top_p = 0.9
+        temperature=0.1,
+        top_p = 0.1
     )
     return output["choices"][0]["message"]["content"].strip()
 
