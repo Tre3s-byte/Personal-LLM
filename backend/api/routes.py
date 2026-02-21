@@ -6,7 +6,7 @@ router = APIRouter()
 #This function work on async in order to not to block the website workflow
 #It will recieve the request, validate the content and call the model to generate the response
 
-@router.pos("/chat")
+@router.post("/chat")
 async def chat(request: Request):
     body = await request.json()
 
@@ -31,7 +31,7 @@ async def chat(request: Request):
         if not isinstance(msg["role"], str) or not isinstance(msg["content"], str):
             return {"error" : "'role' and 'content' must be strings"}
     
-    response = generate("message")
+    response = generate(messages)
 
     return {"response": response}
     
