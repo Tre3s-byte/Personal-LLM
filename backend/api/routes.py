@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Request, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from services.inference import run_inference
 from services.router import route_request
+import logging as logger
+import json
+
+
 router = APIRouter()
 
 #This function work on async in order to not to block the website workflow
@@ -10,8 +15,14 @@ router = APIRouter()
 
 @router.post("/chat")
 async def chat(request: Request):
-    body = await request.json()
-
+    logger.info(f"Generating response for prompt: {request}")
+    raw = await request.body()
+    try:
+        safe_text = raw.decode("utf-8").replace("\n", "\\n").replace("\r", "\\r")
+        body = json.loads(safe_text)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e}")
+   
     #Message validation (not empty)
     if "messages" not in body:
         raise HTTPException(status_code=400, detail="Missing 'messages' in request body")
@@ -38,8 +49,10 @@ async def chat(request: Request):
 
     if routing["needs_chunking"]:
         #Temporary fallback, chunking is not implemented yet
-        response = run_inference(model_name = model_name, messages=messages)
+        response = await run_in_threadpool(run_inference, model_name = model_name, messages=messages)
     else:
-        response = run_inference(model_name = model_name, messages=messages)
+        response = await run_in_threadpool(run_inference, model_name = model_name, messages=messages)
+    
+    logger.info(f"Generated response: {response}")
 
     return {"response": response}
