@@ -13,22 +13,22 @@ if not HF_TOKEN:
 
 MODELS = {
     "large": {
-        "repo_id": "Qwen/Qwen2.5-7B-Instruct-GGUF",
+        "repo_id": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
         "files" : [
-            "qwen2.5-7b-instruct-q5_k_m-00001-of-00002.gguf",
-            "qwen2.5-7b-instruct-q5_k_m-00002-of-00002.gguf",
+            "qwen2.5-coder-7b-instruct-q4_k_m-00001-of-00002.gguf",
+            "qwen2.5-coder-7b-instruct-q4_k_m-00002-of-00002.gguf",
         ],
     },
     "medium" :{
-        "repo_id": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "repo_id": "mradermacher/JOSIE-4B-Thinking-GGUF",
         "files" : [
-            "Phi-3-mini-4k-instruct-q4.gguf"
+            "JOSIE-4B-Thinking.Q4_K_M.gguf"
         ],
     } ,
     "small":{
-        "repo_id" : "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+         "repo_id": "mradermacher/JOSIE-4B-Instruct-GGUF",
         "files" : [
-            "qwen2.5-1.5b-instruct-q4_0.gguf"
+            "JOSIE-4B-Instruct.Q4_K_M.gguf"
         ],
     },
 }
