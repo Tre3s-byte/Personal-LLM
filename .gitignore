@@ -6,3 +6,4 @@ chats/
 .env
 .prettierrc
 .editorconfig.env
+requirements.txt
