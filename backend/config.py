@@ -1,28 +1,51 @@
 USE_GPU = True
+
 N_GPU_LAYERS = -1
+
+MODEL_SMALL_PATH = "models/JOSIE-4B-Instruct.Q4_K_M.gguf"
+MODEL_MEDIUM_PATH = "models/JOSIE-4B-Instruct.Q4_K_M.gguf"
+MODEL_LARGE_PATH = "models/qwen2.5-coder-7b-instruct-q4_k_m-00001-of-00002.gguf"
+
 SAFE_CTX_SMALL = 2048
 SAFE_CTX_MEDIUM = 4096
 SAFE_CTX_LARGE = 4096
 
-MODEL_SMALL_PATH = "models/qwen2.5-1.5b-instruct-q4_0.gguf"
-MODEL_MEDIUM_PATH = "models/Phi-3-mini-4k-instruct-q4.gguf"
-MODEL_LARGE_PATH = "models/qwen2.5-7b-instruct-q5_k_m-00001-of-00002.gguf"
+TEMPERATURE_SMALL = 0
+TEMPERATURE_MEDIUM = 0
+TEMPERATURE_LARGE = 0
+
+MAX_TOKENS_SMALL = 500
+MAX_TOKENS_MEDIUM = 900
+MAX_TOKENS_LARGE = 2000
+
+TOP_P_SMALL = 0.9
+TOP_P_MEDIUM = 0.95
+TOP_P_LARGE = 1
 
 MODEL_CONFIG = {
     "small":{
         "path": MODEL_SMALL_PATH,
         "n_gpu_layers": -1,
-        "n_ctx" : SAFE_CTX_SMALL
+        "n_ctx" : SAFE_CTX_SMALL,
+        "max_tokens": MAX_TOKENS_SMALL,
+        "temperature": TEMPERATURE_SMALL,
+        "top_p": TOP_P_SMALL
     },
     "medium":{
         "path": MODEL_MEDIUM_PATH,
-        "n_gpu_layers": 30,
-        "n_ctx" : SAFE_CTX_MEDIUM
+        "n_gpu_layers": 44,
+        "n_ctx" : SAFE_CTX_MEDIUM,
+        "max_tokens": MAX_TOKENS_MEDIUM,
+        "temperature": TEMPERATURE_MEDIUM,
+        "top_p": TOP_P_MEDIUM
     },
     "large":{
         "path": MODEL_LARGE_PATH,
-        "n_gpu_layers": 20,
-        "n_ctx" : SAFE_CTX_LARGE
+        "n_gpu_layers": 24,
+        "n_ctx" : SAFE_CTX_LARGE,
+        "max_tokens": MAX_TOKENS_LARGE,
+        "temperature": TEMPERATURE_LARGE,
+        "top_p": TOP_P_LARGE
     }
 }
 
