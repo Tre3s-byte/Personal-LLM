@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.concurrency import run_in_threadpool
-from services.inference import run_inference
+from services.inference import run_routed_inference
 from services.router import route_request
 import logging as logger
 import json
@@ -47,11 +47,12 @@ async def chat(request: Request):
     routing = route_request(messages)
     model_name = routing["target_model"]
 
-    if routing["needs_chunking"]:
-        #Temporary fallback, chunking is not implemented yet
-        response = await run_in_threadpool(run_inference, model_name = model_name, messages=messages)
-    else:
-        response = await run_in_threadpool(run_inference, model_name = model_name, messages=messages)
+    response = await run_in_threadpool(
+        run_routed_inference,
+        model_name=model_name,
+        messages=messages,
+        routing=routing,
+    )
     
     logger.info(f"Generated response: {response}")
 
