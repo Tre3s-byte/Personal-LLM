@@ -18,8 +18,7 @@ async def chat(request: Request):
     logger.info(f"Generating response for prompt: {request}")
     raw = await request.body()
     try:
-        safe_text = raw.decode("utf-8").replace("\n", "\\n").replace("\r", "\\r")
-        body = json.loads(safe_text)
+        body = json.loads(raw)
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e}")
    
