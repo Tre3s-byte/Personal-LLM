@@ -1,6 +1,7 @@
 import re
 from config import ROUTER_LIGHT_THRESHOLD, ROUTER_HEAVY_THRESHOLD
 from services.chunker import estimate_tokens
+from .chat_manager import extract_last_user_message
 
 # ---- Precompiled patterns ----
 
@@ -34,11 +35,7 @@ LOG_PATTERN = re.compile(
 )
 
 
-def extract_last_user_message(messages):
-    for msg in reversed(messages):
-        if msg.get("role") == "user":
-            return msg.get("content", "")
-    return ""
+
 
 
 def has_code_symbols(text: str) -> bool:
@@ -76,7 +73,6 @@ def route_request(messages):
         return {
             "task_type": "code_review" if token_estimate < ROUTER_HEAVY_THRESHOLD else "code_heavy_review",
             "target_model": "large",
-            "needs_chunking": token_estimate >= ROUTER_HEAVY_THRESHOLD,
             "chunk_strategy": "code" if token_estimate >= ROUTER_HEAVY_THRESHOLD else None,
             "is_recommended": is_recommended,
         }
@@ -85,7 +81,6 @@ def route_request(messages):
         return {
             "task_type": "grammar",
             "target_model": "small",
-            "needs_chunking": False,
             "chunk_strategy": None,
             "is_recommended": is_recommended,
         }
@@ -94,7 +89,6 @@ def route_request(messages):
         return {
             "task_type": "log_summary" if token_estimate >= ROUTER_LIGHT_THRESHOLD else "log_review",
             "target_model": "medium" if token_estimate < ROUTER_HEAVY_THRESHOLD else "large",
-            "needs_chunking": token_estimate >= ROUTER_LIGHT_THRESHOLD,
             "chunk_strategy": "log" if token_estimate >= ROUTER_LIGHT_THRESHOLD else None,
             "is_recommended": is_recommended,
         }
@@ -104,14 +98,12 @@ def route_request(messages):
             return {
                 "task_type": "light_summary",
                 "target_model": "medium",
-                "needs_chunking": False,
                 "chunk_strategy": None,
                 "is_recommended": is_recommended,
             }
         return {
             "task_type": "heavy_summary",
             "target_model": "large",
-            "needs_chunking": True,
             "chunk_strategy": "log",
             "is_recommended": is_recommended,
         }
@@ -121,14 +113,12 @@ def route_request(messages):
             return {
                 "task_type": "recommend_short",
                 "target_model": "small",
-                "needs_chunking": False,
                 "chunk_strategy": None,
                 "is_recommended": is_recommended,
             }
         return {
             "task_type": "recommend_long",
             "target_model": "medium",
-            "needs_chunking": False,
             "chunk_strategy": "chat",
             "is_recommended": is_recommended,
         }
@@ -137,7 +127,6 @@ def route_request(messages):
         return {
             "task_type": "general_chat",
             "target_model": "small",
-            "needs_chunking": False,
             "chunk_strategy": None,
             "is_recommended": is_recommended,
         }
@@ -145,7 +134,6 @@ def route_request(messages):
     return {
         "task_type": "general_long",
         "target_model": "medium",
-        "needs_chunking": False,
         "chunk_strategy": "chat",
         "is_recommended": is_recommended,
     }
