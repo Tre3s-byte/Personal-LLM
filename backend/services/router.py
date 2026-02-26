@@ -80,27 +80,13 @@ def route_request(messages):
 
     # ---- CODE ----
     if is_code_structure or is_code_intent:
-        if token_estimate < ROUTER_LIGHT_THRESHOLD:
-            return {
-                "task_type": "code_light",
-                "target_model": "small",
-                "needs_chunking": False,
-                "is_recommended": is_recommended
-            }
-        if token_estimate < ROUTER_HEAVY_THRESHOLD:
-            return {
-                "task_type": "code_review",
-                "target_model": "large",
-                "needs_chunking": False,
-                "is_recommended": is_recommended
-            }
         return {
-            "task_type": "code_heavy_review",
+            "task_type": "code_review" if token_estimate < ROUTER_HEAVY_THRESHOLD else "code_heavy_review",
             "target_model": "large",
-            "needs_chunking": True,
+            "needs_chunking": token_estimate >= ROUTER_HEAVY_THRESHOLD,
             "is_recommended": is_recommended
-        }
-
+            }
+    
     # ---- GRAMMAR ----
     if is_grammar:
         return {
