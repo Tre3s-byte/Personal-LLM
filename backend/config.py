@@ -46,7 +46,7 @@ MODEL_CONFIG = {
     },
     "large":{
         "path": MODEL_LARGE_PATH,
-        "n_gpu_layers": 24,
+        "n_gpu_layers": 22,
         "n_ctx" : SAFE_CTX_LARGE,
         "max_tokens": MAX_TOKENS_LARGE,
         "temperature": TEMPERATURE_LARGE,
