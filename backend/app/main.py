@@ -2,8 +2,9 @@ import logging
 from fastapi import FastAPI
 from app.routes import router as app_router
 from api.routes import router as api_router
+from utils.logging import setup_logging
 
-logging.basicConfig(level=logging.INFO)
+setup_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Local LLM API")

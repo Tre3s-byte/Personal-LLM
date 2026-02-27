@@ -2,16 +2,15 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from services.inference import run_routed_inference
 from services.router import route_request
-import logging as logger
 import json
-
+import logging
 
 router = APIRouter()
 
 #This function work on async in order to not to block the website workflow
 #It will recieve the request, validate the content and call the model to generate the response
 
-
+logger = logging.getLogger(__name__)
 
 @router.post("/chat")
 async def chat(request: Request):
