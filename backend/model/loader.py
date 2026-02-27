@@ -1,5 +1,5 @@
 from llama_cpp import Llama
-from pathlib import Path
+from pathlib import Path  # noqa: F401
 import os
 
 #This function loads the model and make it available to generate the answers of every request
