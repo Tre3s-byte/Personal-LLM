@@ -10,15 +10,18 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class JsonFormatter(logging.Formatter):
-    def format(self, record: logging.LogRecord) -> str:
+    def format(self, record):
         payload = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "timestamp": ...,
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
         }
-        if record.exc_info:
-            payload["exception"] = self.formatException(record.exc_info)
+
+        if hasattr(record, "event_payload"):
+            payload.update(record.event_payload)
+        else:
+            payload["message"] = record.getMessage()
+
         return json.dumps(payload, ensure_ascii=False)
 
 
@@ -69,7 +72,7 @@ LOGGING_CONFIG = {
         },
     },
     "loggers": {
-        "inference": {
+        "services.inference": {
             "handlers": ["inference_file", "console"],
             "level": "INFO",
             "propagate": False,
