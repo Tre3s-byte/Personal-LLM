@@ -1,63 +1,9 @@
 from typing import Any, Dict, List
-import logging
-import time
 
 from config import MODEL_CONFIG
 from model.registry import get_model
 from services.chunker import chunk_code, chunk_log_text, trim_chat_history
 from utils.normalization import normalize_history_for_model
-
-logger = logging.getLogger("inference")
-telemetry_logger = logging.getLogger("telemetry")
-
-
-def log_inference_event(
-    model: str,
-    task_type: str,
-    latency_seconds: float,
-    prompt_tokens: int = None,
-    completion_tokens: int = None,
-    total_tokens: int = None,
-    tokens_per_second: float = None,
-    strategy: str = None,
-    chunk_info: dict = None,
-):
-    telemetry_logger.info(
-        "inference_complete",
-        extra={
-            "event": "inference_complete",
-            "model": model,
-            "models_used": [model],
-            "task_type": task_type,
-            "strategy": strategy,
-            "latency_seconds": latency_seconds,
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": total_tokens,
-            "tokens_per_second": tokens_per_second,
-            "chunk_info": chunk_info
-            or {
-                "chunk_count": 1,
-                "chunk_size": None,
-                "chunk_strategy": "none",
-            },
-        },
-    )
-
-
-# ------------------------
-# Utility: JSON sanitizer
-# ------------------------
-
-
-def _sanitize(obj):
-    if obj is ...:
-        return None
-    if isinstance(obj, dict):
-        return {k: _sanitize(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_sanitize(v) for v in obj]
-    return obj
 
 
 # ------------------------
@@ -104,17 +50,7 @@ def _generate_with_model(
 
 
 def run_inference(model_name: str, messages: List[Dict[str, str]]):
-    logger.info(f"Starting inference for model: {model_name}")
-    start_time = time.time()
-
-    response = _generate_with_model(model_name=model_name, messages=messages)
-
-    processing_time = time.time() - start_time
-    logger.info(
-        f"Inference completed for model: {model_name}, processing time: {processing_time:.2f} seconds"
-    )
-
-    return response
+    return _generate_with_model(model_name=model_name, messages=messages)
 
 
 # ------------------------
@@ -254,11 +190,7 @@ def run_routed_inference(
     messages: List[Dict[str, str]],
     routing: Dict[str, Any],
 ):
-
-    start_time = time.time()
     strategy = routing.get("chunk_strategy")
-
-    logger.info(f"Starting routed inference | model={model_name} strategy={strategy}")
 
     if strategy == "chat":
         cfg = MODEL_CONFIG[model_name]
@@ -287,43 +219,19 @@ def run_routed_inference(
             "chunk_strategy": "none",
         }
 
-    latency = time.time() - start_time
 
-    usage = response.get("usage", {}) if isinstance(response, dict) else {}
-    prompt_tokens = usage.get("prompt_tokens") or 0
-    completion_tokens = usage.get("completion_tokens") or 0
-    total_tokens = usage.get("total_tokens") or 0
+    if isinstance(response, dict):
+        response.setdefault("models_used", [model_name])
+        response.setdefault("chunk_info", chunk_info)
+        return response
 
-    tokens_per_second = (
-        round(total_tokens / latency, 4) if latency > 0 and total_tokens > 0 else None
-    )
-
-    models_used = (
-        response.get("models_used", [model_name])
-        if isinstance(response, dict)
-        else [model_name]
-    )
-
-    telemetry_payload = {
-        "event": "inference_complete",
-        "model": model_name,
-        "models_used": models_used,
-        "task_type": routing.get("task_type"),
-        "strategy": strategy,
-        "latency_seconds": round(latency, 4),
-        "prompt_tokens": prompt_tokens,
-        "completion_tokens": completion_tokens,
-        "total_tokens": total_tokens,
-        "tokens_per_second": tokens_per_second,
+    return {
+        "text": response,
+        "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        },
+        "models_used": [model_name],
         "chunk_info": chunk_info,
     }
-
-    safe_payload = _sanitize(telemetry_payload)
-
-    telemetry_logger.info("", extra={"event_payload": safe_payload})
-
-    logger.info(
-        f"Completed routed inference | model={model_name} latency={latency:.2f}s"
-    )
-
-    return response["text"] if isinstance(response, dict) else response
