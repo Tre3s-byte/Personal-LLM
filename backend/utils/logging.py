@@ -10,19 +10,31 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class JsonFormatter(logging.Formatter):
-    def format(self, record):
+    def _sanitize(self, obj):
+        if obj is ...:
+            return None
+        if isinstance(obj, dict):
+            return {k: self._sanitize(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._sanitize(v) for v in obj]
+        return obj
+
+    def format(self, record: logging.LogRecord) -> str:
         payload = {
-            "timestamp": ...,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
         }
 
+        # If structured telemetry
         if hasattr(record, "event_payload"):
             payload.update(record.event_payload)
         else:
             payload["message"] = record.getMessage()
 
-        return json.dumps(payload, ensure_ascii=False)
+        safe_payload = self._sanitize(payload)
+
+        return json.dumps(safe_payload, ensure_ascii=False)
 
 
 LOGGING_CONFIG = {
