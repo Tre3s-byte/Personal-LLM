@@ -1,6 +1,7 @@
 import json
 import logging
 import logging.config
+from typing import Any
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -104,3 +105,69 @@ LOGGING_CONFIG = {
 
 def setup_logging() -> None:
     logging.config.dictConfig(LOGGING_CONFIG)
+
+
+inference_logger = logging.getLogger("services.inference")
+telemetry_logger = logging.getLogger("telemetry")
+
+
+def _sanitize(obj: Any):
+    if obj is ...:
+        return None
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(v) for v in obj]
+    return obj
+
+
+def log_inference_started(model_name: str, strategy: str | None = None) -> None:
+    inference_logger.info(
+        f"Starting routed inference | model={model_name} strategy={strategy}"
+    )
+
+
+def log_inference_completed(model_name: str, latency_seconds: float) -> None:
+    inference_logger.info(
+        f"Completed routed inference | model={model_name} latency={latency_seconds:.2f}s"
+    )
+
+
+def log_inference_telemetry(
+    *,
+    model: str,
+    task_type: str | None,
+    strategy: str | None,
+    latency_seconds: float,
+    prompt_tokens: int,
+    completion_tokens: int,
+    total_tokens: int,
+    models_used: list[str] | None = None,
+    chunk_info: dict[str, Any] | None = None,
+) -> None:
+    tokens_per_second = (
+        round(total_tokens / latency_seconds, 4)
+        if latency_seconds > 0 and total_tokens > 0
+        else None
+    )
+
+    payload = {
+        "event": "inference_complete",
+        "model": model,
+        "models_used": models_used or [model],
+        "task_type": task_type,
+        "strategy": strategy,
+        "latency_seconds": round(latency_seconds, 4),
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "tokens_per_second": tokens_per_second,
+        "chunk_info": chunk_info
+        or {
+            "chunk_count": 1,
+            "chunk_size": None,
+            "chunk_strategy": "none",
+        },
+    }
+
+    telemetry_logger.info("", extra={"event_payload": _sanitize(payload)})
