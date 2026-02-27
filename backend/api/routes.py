@@ -14,11 +14,12 @@ logger = logging.getLogger(__name__)
 
 @router.post("/chat")
 async def chat(request: Request):
-    logger.info(f"Generating response for prompt: {request}")
+    logger.info("Received /chat request")
     raw = await request.body()
     try:
         body = json.loads(raw)
     except json.JSONDecodeError as e:
+        logger.warning("Invalid JSON payload", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e}")
    
     #Message validation (not empty)
@@ -52,6 +53,6 @@ async def chat(request: Request):
         routing=routing,
     )
     
-    logger.info(f"Generated response: {response}")
+    logger.info("Generated response successfully")
 
     return {"response": response}

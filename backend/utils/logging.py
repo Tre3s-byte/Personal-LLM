@@ -1,17 +1,36 @@
+import json
 import logging
 import logging.config
+from datetime import datetime, timezone
 from pathlib import Path
 
-LOG_DIR = Path("logs")
-LOG_DIR.mkdir(exist_ok=True)
+BASE_DIR = Path(__file__).resolve().parents[1]
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=False)
+
 
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "standard": {"format": "%(asctime)s|%(levelname)s|%(name)s|%(message)s"},
+        "standard": {
+            "format": "%(asctime)s|%(levelname)s|%(name)s|%(message)s",
+        },
         "json": {
-            "format": '{"timestamp":"%(asctime)s", "level": "%(levelname)s", "logger": "%(name)s", "message": "%(message)s"}'
+            "()": JsonFormatter,
         },
     },
     "handlers": {
@@ -21,24 +40,37 @@ LOGGING_CONFIG = {
             "formatter": "standard",
             "stream": "ext://sys.stdout",
         },
-        "inference_file": {
-            "class": "logging.FileHandler",
+        "app_file": {
+            "class": "logging.handlers.RotatingFileHandler",
             "level": "INFO",
             "formatter": "standard",
-            "filename": "logs/inference_log.txt",
+            "filename": str(LOG_DIR / "app.log"),
             "encoding": "utf-8",
+            "maxBytes": 5_000_000,
+            "backupCount": 3,
+        },
+        "inference_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "level": "INFO",
+            "formatter": "standard",
+            "filename": str(LOG_DIR / "inference.log"),
+            "encoding": "utf-8",
+            "maxBytes": 5_000_000,
+            "backupCount": 3,
         },
         "telemetry_file": {
-            "class": "logging.FileHandler",
+            "class": "logging.handlers.RotatingFileHandler",
             "level": "INFO",
             "formatter": "json",
-            "filename": "logs/telemetry.json",
+            "filename": str(LOG_DIR / "telemetry.jsonl"),
             "encoding": "utf-8",
+            "maxBytes": 5_000_000,
+            "backupCount": 3,
         },
     },
     "loggers": {
         "inference": {
-            "handlers": ["inference_file"],
+            "handlers": ["inference_file", "console"],
             "level": "INFO",
             "propagate": False,
         },
@@ -48,9 +80,12 @@ LOGGING_CONFIG = {
             "propagate": False,
         },
     },
-    "root": {"level": "INFO", "handlers": ["console"]},
+    "root": {
+        "level": "INFO",
+        "handlers": ["console", "app_file"],
+    },
 }
 
 
-def setup_logging():
+def setup_logging() -> None:
     logging.config.dictConfig(LOGGING_CONFIG)
