@@ -1,7 +1,6 @@
-from typing import Dict, List
+from typing import Any, Dict, List
 import logging
 import time
-import json
 
 from config import MODEL_CONFIG
 from model.registry import get_model
@@ -14,7 +13,7 @@ telemetry_logger = logging.getLogger("telemetry")
 
 def _generate_with_model(
     model_name: str, messages: List[Dict[str, str]], max_tokens: int | None = None
-) -> str:
+) -> Dict[str, Any]:
     if model_name not in MODEL_CONFIG:
         raise ValueError(f"Unknown model: {model_name}")
 
@@ -29,7 +28,17 @@ def _generate_with_model(
         top_p=cfg["top_p"],
     )
 
-    return output["choices"][0]["message"]["content"].strip()
+    usage = output.get("usage") or {}
+    text = output["choices"][0]["message"]["content"].strip()
+
+    return {
+        "text": text,
+        "usage": {
+            "prompt_tokens": usage.get("prompt_tokens"),
+            "completion_tokens": usage.get("completion_tokens"),
+            "total_tokens": usage.get("total_tokens"),
+        },
+    }
 
 
 def run_inference(model_name: str, messages: List[Dict[str, str]]):
@@ -61,6 +70,12 @@ def _hierarchical_log_generate(model_name: str, messages: List[Dict[str, str]]) 
         return run_inference(model_name, messages)
 
     chunk_summaries = []
+    models_used = [model_name]
+    aggregate_usage = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    }
     for i, chunk in enumerate(chunks, start=1):
         prompt_messages = [
             {
@@ -69,9 +84,11 @@ def _hierarchical_log_generate(model_name: str, messages: List[Dict[str, str]]) 
             },
             {"role": "user", "content": f"Chunk {i}/{len(chunks)}\n\n{chunk}"},
         ]
-        chunk_summaries.append(
-            _generate_with_model(model_name, prompt_messages, max_tokens=350)
-        )
+        output = _generate_with_model(model_name, prompt_messages, max_tokens=350)
+        chunk_summaries.append(output["text"])
+        usage = output.get("usage", {})
+        for key in aggregate_usage:
+            aggregate_usage[key] += usage.get(key) or 0
 
     merge_messages = [
         {
@@ -80,7 +97,21 @@ def _hierarchical_log_generate(model_name: str, messages: List[Dict[str, str]]) 
         },
         {"role": "user", "content": "\n\n".join(chunk_summaries)},
     ]
-    return _generate_with_model(model_name, merge_messages, max_tokens=500)
+    merged_output = _generate_with_model(model_name, merge_messages, max_tokens=500)
+    merged_usage = merged_output.get("usage", {})
+    for key in aggregate_usage:
+        aggregate_usage[key] += merged_usage.get(key) or 0
+
+    return {
+        "text": merged_output["text"],
+        "usage": aggregate_usage,
+        "models_used": models_used,
+        "chunk_info": {
+            "chunk_count": len(chunks),
+            "chunk_size": 1000,
+            "chunk_strategy": "log",
+        },
+    }
 
 
 def _structured_code_generate(model_name: str, messages: List[Dict[str, str]]) -> str:
@@ -91,6 +122,12 @@ def _structured_code_generate(model_name: str, messages: List[Dict[str, str]]) -
         return run_inference(model_name, messages)
 
     function_summaries = []
+    models_used = [model_name]
+    aggregate_usage = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    }
     for i, chunk in enumerate(code_chunks, start=1):
         prompt_messages = [
             {
@@ -102,9 +139,11 @@ def _structured_code_generate(model_name: str, messages: List[Dict[str, str]]) -
                 "content": f"Code block {i}/{len(code_chunks)}\n\n{chunk}",
             },
         ]
-        function_summaries.append(
-            _generate_with_model(model_name, prompt_messages, max_tokens=300)
-        )
+        output = _generate_with_model(model_name, prompt_messages, max_tokens=300)
+        function_summaries.append(output["text"])
+        usage = output.get("usage", {})
+        for key in aggregate_usage:
+            aggregate_usage[key] += usage.get(key) or 0
 
     reasoning_messages = [
         {
@@ -113,7 +152,21 @@ def _structured_code_generate(model_name: str, messages: List[Dict[str, str]]) -
         },
         {"role": "user", "content": "\n\n".join(function_summaries)},
     ]
-    return _generate_with_model(model_name, reasoning_messages, max_tokens=700)
+    reasoning_output = _generate_with_model(model_name, reasoning_messages, max_tokens=700)
+    reasoning_usage = reasoning_output.get("usage", {})
+    for key in aggregate_usage:
+        aggregate_usage[key] += reasoning_usage.get(key) or 0
+
+    return {
+        "text": reasoning_output["text"],
+        "usage": aggregate_usage,
+        "models_used": models_used,
+        "chunk_info": {
+            "chunk_count": len(code_chunks),
+            "chunk_size": 900,
+            "chunk_strategy": "code",
+        },
+    }
 
 
 def run_routed_inference(
@@ -131,28 +184,56 @@ def run_routed_inference(
         safe_input_budget = int(cfg["n_ctx"] * 0.85)
         trimmed_messages = trim_chat_history(messages, max_tokens=safe_input_budget)
         response = run_inference(model_name, trimmed_messages)
+        chunk_info = {
+            "chunk_count": 1,
+            "chunk_size": safe_input_budget,
+            "chunk_strategy": "chat_trim",
+        }
 
     elif strategy == "log":
         response = _hierarchical_log_generate(model_name, messages)
+        chunk_info = response.get("chunk_info")
 
     elif strategy == "code":
         response = _structured_code_generate(model_name, messages)
+        chunk_info = response.get("chunk_info")
 
     else:
         response = run_inference(model_name, messages)
+        chunk_info = {
+            "chunk_count": 1,
+            "chunk_size": None,
+            "chunk_strategy": "none",
+        }
 
     latency = time.time() - start_time
+
+    usage = response.get("usage") if isinstance(response, dict) else None
+    prompt_tokens = usage.get("prompt_tokens") if usage else None
+    completion_tokens = usage.get("completion_tokens") if usage else None
+    total_tokens = usage.get("total_tokens") if usage else None
+    tokens_per_second = None
+    if total_tokens and latency > 0:
+        tokens_per_second = total_tokens / latency
+
+    models_used = response.get("models_used", [model_name]) if isinstance(response, dict) else [model_name]
 
     telemetry_payload = {
         "event": "inference_complete",
         "model": model_name,
+        "models_used": models_used,
         "task_type": routing.get("task_type"),
         "strategy": strategy,
-        "latency_seconds": latency,
+        "latency_seconds": round(latency, 4),
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "tokens_per_second": round(tokens_per_second, 4) if tokens_per_second else None,
+        "chunk_info": chunk_info,
     }
     telemetry_logger.info("", extra={"event_payload": telemetry_payload})
     logger.info(
         f"Completed routed inference | model={model_name} latency={latency:.2f}s"
     )
 
-    return response
+    return response["text"] if isinstance(response, dict) else response
