@@ -32,3 +32,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+app.json
+app.txt
+inference_log.txt
+telemetry.json
