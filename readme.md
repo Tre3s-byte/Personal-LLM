@@ -56,35 +56,35 @@ The goal is full ownership, privacy, and extensibility.
 - Document ingestion pipeline
 - Context injection before generation
 
-### Phase 1, structural correctness
+&nbsp; ### Phase 1, structural correctness
 
-• Persistent vector_store abstraction
+&nbsp; • Persistent vector_store abstraction
 
-• Proper embeddings service separation
+&nbsp; • Proper embeddings service separation
 
-• Metadata support
+&nbsp; • Metadata support
 
-• Safe rebuild and reload
+&nbsp; • Safe rebuild and reload
 
-### Phase 2, retrieval quality
+&nbsp; ### Phase 2, retrieval quality
 
-• Query normalization
+&nbsp; • Query normalization
 
-• Hybrid search, semantic plus keyword
+&nbsp; • Hybrid search, semantic plus keyword
 
-• Re ranking stage
+&nbsp; • Re ranking stage
 
-• Dynamic top_k based on token budget
+&nbsp; • Dynamic top_k based on token budget
 
-### Phase 3, system integration
+&nbsp; ### Phase 3, system integration
 
-• Router aware RAG triggers
+&nbsp; • Router aware RAG triggers
 
-• RAG specific prompt templates
+&nbsp; • RAG specific prompt templates
 
-• Context compression
+&nbsp; • Context compression
 
-• Telemetry for retrieval quality
+&nbsp; • Telemetry for retrieval quality
 
 ## 3. File Access Layer
 
