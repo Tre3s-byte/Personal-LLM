@@ -34,8 +34,10 @@ LOG_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-
-
+RAG_PATTERN = re.compile(
+    r"\b(document|file|knowledge base|according to|based on the docs)\b",
+    re.IGNORECASE,
+)
 
 
 def has_code_symbols(text: str) -> bool:
@@ -69,11 +71,23 @@ def route_request(messages):
     )
     is_recommended = intention_count == 1
 
+    if RAG_PATTERN.search(text):
+        return {
+            "task_type": "rag_query",
+            "target_model": "medium",
+            "chunk_strategy": None,
+            "requires_rag": True,
+        }
+
     if is_code_structure or is_code_intent:
         return {
-            "task_type": "code_review" if token_estimate < ROUTER_HEAVY_THRESHOLD else "code_heavy_review",
+            "task_type": "code_review"
+            if token_estimate < ROUTER_HEAVY_THRESHOLD
+            else "code_heavy_review",
             "target_model": "large",
-            "chunk_strategy": "code" if token_estimate >= ROUTER_HEAVY_THRESHOLD else None,
+            "chunk_strategy": "code"
+            if token_estimate >= ROUTER_HEAVY_THRESHOLD
+            else None,
             "is_recommended": is_recommended,
         }
 
@@ -87,9 +101,15 @@ def route_request(messages):
 
     if is_log:
         return {
-            "task_type": "log_summary" if token_estimate >= ROUTER_LIGHT_THRESHOLD else "log_review",
-            "target_model": "medium" if token_estimate < ROUTER_HEAVY_THRESHOLD else "large",
-            "chunk_strategy": "log" if token_estimate >= ROUTER_LIGHT_THRESHOLD else None,
+            "task_type": "log_summary"
+            if token_estimate >= ROUTER_LIGHT_THRESHOLD
+            else "log_review",
+            "target_model": "medium"
+            if token_estimate < ROUTER_HEAVY_THRESHOLD
+            else "large",
+            "chunk_strategy": "log"
+            if token_estimate >= ROUTER_LIGHT_THRESHOLD
+            else None,
             "is_recommended": is_recommended,
         }
 

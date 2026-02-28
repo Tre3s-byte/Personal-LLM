@@ -46,7 +46,19 @@ async def chat(request: Request):
             raise HTTPException(
                 status_code=400, detail="Each message must contain role and content"
             )
+    if routing.get("requires_rag"):
+        user_query = messages[-1]["content"]
+        retrieved_chunks = rag_engine.search(user_query, top_k=4)
 
+        context_block = "\n\n".join(retrieved_chunks)
+
+        messages = [
+            {
+                "role": "system",
+                "content": "Use the following context to answer the question.\n\n"
+                + context_block,
+            }
+        ] + messages
     routing = route_request(messages)
     model_name = routing["target_model"]
 
