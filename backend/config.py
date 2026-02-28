@@ -6,7 +6,7 @@ MODEL_SMALL_PATH = "models/JOSIE-4B-Instruct.Q4_K_M.gguf"
 MODEL_MEDIUM_PATH = "models/JOSIE-4B-Instruct.Q4_K_M.gguf"
 MODEL_LARGE_PATH = "models/qwen2.5-coder-7b-instruct-q4_k_m-00001-of-00002.gguf"
 
-SAFE_CTX_SMALL = 2048
+SAFE_CTX_SMALL = 4096
 SAFE_CTX_MEDIUM = 4096
 SAFE_CTX_LARGE = 4096
 
@@ -28,30 +28,30 @@ LARGE_INPUT_BUDGET = SAFE_CTX_LARGE - MAX_TOKENS_LARGE - 400
 
 
 MODEL_CONFIG = {
-    "small":{
+    "small": {
         "path": MODEL_SMALL_PATH,
         "n_gpu_layers": -1,
-        "n_ctx" : SAFE_CTX_SMALL,
+        "n_ctx": SAFE_CTX_SMALL,
         "max_tokens": MAX_TOKENS_SMALL,
         "temperature": TEMPERATURE_SMALL,
-        "top_p": TOP_P_SMALL
+        "top_p": TOP_P_SMALL,
     },
-    "medium":{
+    "medium": {
         "path": MODEL_MEDIUM_PATH,
-        "n_gpu_layers": 44,
-        "n_ctx" : SAFE_CTX_MEDIUM,
+        "n_gpu_layers": 40,
+        "n_ctx": SAFE_CTX_MEDIUM,
         "max_tokens": MAX_TOKENS_MEDIUM,
         "temperature": TEMPERATURE_MEDIUM,
-        "top_p": TOP_P_MEDIUM
+        "top_p": TOP_P_MEDIUM,
     },
-    "large":{
+    "large": {
         "path": MODEL_LARGE_PATH,
-        "n_gpu_layers": 22,
-        "n_ctx" : SAFE_CTX_LARGE,
+        "n_gpu_layers": 25,
+        "n_ctx": SAFE_CTX_LARGE,
         "max_tokens": MAX_TOKENS_LARGE,
         "temperature": TEMPERATURE_LARGE,
-        "top_p": TOP_P_LARGE
-    }
+        "top_p": TOP_P_LARGE,
+    },
 }
 
 ROUTER_LIGHT_THRESHOLD = 800
