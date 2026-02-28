@@ -57,9 +57,9 @@ The goal is full ownership, privacy, and extensibility.
 - Context injection before generation
 <div style="margin-left: 1.5em;">
 
-### Phase 1, structural correctness
-
-- Persistent vector_store abstraction
+<h3> Phase 1, structural correctness </h3>
+<ul>
+<li> Persistent vector_store abstraction</li>
 - Proper embeddings service separation
 - Metadata support
 - Safe rebuild and reload
@@ -77,7 +77,7 @@ The goal is full ownership, privacy, and extensibility.
 - RAG specific prompt templates
 - Context compression
 - Telemetry for retrieval quality
-
+</ul>
 </div>
 
 ## 3. File Access Layer
