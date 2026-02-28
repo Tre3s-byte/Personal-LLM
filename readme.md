@@ -1,341 +1,381 @@
-<p align="center"> 
-    <h1 align="center">Personal AI Server</h1> 
-    <p align="center"> Self Hosted · Local LLM · RAG Engine · Remote Access Ready </p> 
-</p> 
-<p align="center"> 
-    <img src="https://img.shields.io/badge/LLM-Local-blue" /> 
-    <img src="https://img.shields.io/badge/RAG-FAISS-green" /> 
-    <img src="https://img.shields.io/badge/API-FastAPI-purple" /> 
-    <img src="https://img.shields.io/badge/Access-VPN-orange" /> 
-    <img src="https://img.shields.io/badge/License-MIT-lightgrey" /> 
+<p align="center">
+  <h1 align="center">Personal AI Server</h1>
+  <p align="center">
+    Self Hosted · Local LLM · RAG Engine · Remote Access Ready
+  </p>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/LLM-Local-blue" />
+  <img src="https://img.shields.io/badge/RAG-FAISS-green" />
+  <img src="https://img.shields.io/badge/API-FastAPI-purple" />
+  <img src="https://img.shields.io/badge/Access-VPN-orange" />
+  <img src="https://img.shields.io/badge/License-MIT-lightgrey" />
 </p>
 
 ---
 
-**Personal self hosted AI** infrastructure designed to run locally, accessible remotely through a secure private network, and structured for future multi user expansion.
+## Overview
 
-**This project is not a chatbot.**
-It is an AI operating layer for a personal workstation.
+**Personal self hosted AI infrastructure** designed to run locally, accessible remotely through a secure private network, and structured for future multi user expansion.
 
----
-
-##Vision
-
-**AI Server provides:**
-
-• Local LLM inference
-
-• Retrieval Augmented Generation over personal documents
-
-• Secure file access
-
-• Remote API access from phone
-
-• Controlled system automation
-
-• Wake on LAN integration
-
-• Future multi user readiness
-
-The goal is full ownership, privacy, and extensibility.
+> **This project is not a chatbot.**  
+> It is an AI operating layer for a personal workstation.
 
 ---
 
-##Core Features
+# Vision
 
-1. Local LLM Layer
+## AI Server provides
 
-Runs fully offline
+- Local LLM inference
+- Retrieval Augmented Generation over personal documents
+- Secure file access
+- Remote API access from phone
+- Controlled system automation
+- Wake on LAN integration
+- Future multi user readiness
 
-GPU optional
+**Goal:** full ownership, privacy, extensibility.
 
-Model interchangeable
+---
 
-Wrapped behind a service interface
+# Core Features
 
-2. RAG Engine
+## 1. Local LLM Layer
 
-Local embeddings
+- Runs fully offline
+- GPU optional
+- Model interchangeable
+- Wrapped behind a service interface
 
-FAISS vector store
+---
 
-Document ingestion pipeline
+## 2. RAG Engine
 
-Context injection before generation
+- Local embeddings
+- FAISS vector store
+- Document ingestion pipeline
+- Context injection before generation
 
-3. File Access Layer
+---
 
-Whitelisted directories only
+## 3. File Access Layer
 
-List files
+- Whitelisted directories only
+- List files
+- Search files
+- Read and summarize documents
+- Secure file download endpoint
 
-Search files
+---
 
-Read and summarize documents
+## 4. System Automation Layer
 
-Secure file download endpoint
+- Controlled shutdown
+- Restart
+- Wake on LAN
+- Predefined safe scripts only
+- No arbitrary command execution
 
-4. System Automation Layer
+---
 
-Controlled shutdown
+## 5. Secure API
 
-Restart
+- JWT authentication
+- Role based structure ready
+- Multi user compatible architecture
 
-Wake on LAN
+---
 
-Predefined safe scripts only
+## 6. Remote Access
 
-No arbitrary command execution
+- Designed for VPN usage, Tailscale recommended
+- No public port exposure required
 
-5. Secure API
+---
 
-JWT authentication
+# High Level Architecture
 
-Role based structure ready
-
-Multi user compatible architecture
-
-6. Remote Access
-
-Designed for VPN usage (Tailscale recommended)
-
-No public port exposure required
-
-High Level Architecture
-
+```
 Phone
-↓
+   ↓
 VPN (Tailscale)
-↓
+   ↓
 FastAPI Backend
-↓
+   ↓
 Service Layer
-↓
+   ↓
 LLM + Vector Store + Filesystem
+```
 
 Each layer is isolated and replaceable.
 
-Project Structure
+---
+
+# Project Structure
+
+```
 ai-server/
 │
 ├── app/
-│ ├── main.py
-│ ├── config.py
-│
-│ ├── api/
-│ │ ├── chat.py
-│ │ ├── files.py
-│ │ ├── system.py
-│ │ ├── auth.py
-│
-│ ├── services/
-│ │ ├── llm_service.py
-│ │ ├── rag_service.py
-│ │ ├── embedding_service.py
-│ │ ├── file_service.py
-│ │ ├── system_service.py
-│
-│ ├── core/
-│ │ ├── security.py
-│ │ ├── dependencies.py
-│
-│ ├── models/
-│ │ ├── schemas.py
+│   ├── main.py
+│   ├── config.py
+│   │
+│   ├── api/
+│   │   ├── chat.py
+│   │   ├── files.py
+│   │   ├── system.py
+│   │   └── auth.py
+│   │
+│   ├── services/
+│   │   ├── llm_service.py
+│   │   ├── rag_service.py
+│   │   ├── embedding_service.py
+│   │   ├── file_service.py
+│   │   └── system_service.py
+│   │
+│   ├── core/
+│   │   ├── security.py
+│   │   └── dependencies.py
+│   │
+│   ├── models/
+│   │   └── schemas.py
 │
 ├── data/
-│ ├── vector_store/
-│ ├── documents/
+│   ├── vector_store/
+│   └── documents/
 │
 ├── scripts/
-│ ├── ingest.py
-│ ├── wake_pc.py
+│   ├── ingest.py
+│   └── wake_pc.py
 │
 ├── requirements.txt
-├── README.md
-Design Principles
+└── README.md
+```
 
-Separation of concerns
+---
 
-Service oriented architecture
+# Design Principles
 
-No direct filesystem exposure
+- Separation of concerns
+- Service oriented architecture
+- No direct filesystem exposure
+- Authentication required for every endpoint
+- All system actions validated and restricted
+- Multi user ready from day one
 
-Authentication required for every endpoint
+---
 
-All system actions validated and restricted
+# Installation
 
-Multi user ready from day one
+## 1. Clone Repository
 
-Installation
+```bash
+git clone <repo_url>
+cd ai-server
+```
 
-1. Clone repository
-   git clone <repo_url>
-   cd ai-server
-2. Create virtual environment
-   python -m venv venv
-   venv\Scripts\activate
-3. Install dependencies
-   pip install -r requirements.txt
-4. Run server
-   uvicorn app.main:app --reload
+## 2. Create Virtual Environment
 
-API documentation available at:
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
 
+## 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+## 4. Run Server
+
+```bash
+uvicorn app.main:app --reload
+```
+
+API documentation:
+
+```
 http://127.0.0.1:8000/docs
+```
 
-LLM Configuration
+---
 
-The LLM layer is abstracted inside:
+# LLM Configuration
 
+Location:
+
+```
 app/services/llm_service.py
+```
 
-Supported backends:
+### Supported Backends
 
-Ollama
+| Backend      | Purpose                |
+| ------------ | ---------------------- |
+| Ollama       | Recommended production |
+| Transformers | Full local control     |
+| llama.cpp    | Lightweight inference  |
 
-Local transformers
+Model can be swapped without changing the API layer.
 
-llama.cpp
+---
 
-Model can be swapped without changing API layer.
+# RAG Workflow
 
-RAG Workflow
-
-Documents placed in data/documents
-
-Ingestion script generates embeddings
-
-FAISS index stored in data/vector_store
-
-Query triggers similarity search
-
-Context injected into prompt
-
-LLM generates answer
-
-The RAG layer has no knowledge of HTTP or authentication.
-
-File System Security
-
-Only whitelisted directories are accessible.
-
-Configured in config.py:
-
-ALLOWED_PATHS = [
-"C:/Users/username/Documents",
-"C:/Users/username/Projects"
-]
-
-All file operations are validated against this list.
-
-System Automation Rules
-
-Only predefined actions are executable.
-
-Example:
-
-ALLOWED_ACTIONS = {
-"shutdown": shutdown_pc,
-"restart": restart_pc,
-"backup": run_backup
-}
-
-No arbitrary shell execution allowed.
-
-Remote Access Setup
-
-Recommended: Tailscale VPN
+```
+Documents → Embeddings → FAISS Index → Similarity Search → Context Injection → LLM Response
+```
 
 Steps:
 
-Install Tailscale on PC
+1. Documents placed in `data/documents`
+2. Ingestion script generates embeddings
+3. FAISS index stored in `data/vector_store`
+4. Query triggers similarity search
+5. Context injected into prompt
+6. LLM generates answer
 
-Install Tailscale on phone
+The RAG layer has no knowledge of HTTP or authentication.
 
-Connect both to same network
+---
 
-Access API via Tailscale IP
+# File System Security
+
+Only whitelisted directories are accessible.
+
+Configured in `config.py`:
+
+```python
+ALLOWED_PATHS = [
+    "C:/Users/username/Documents",
+    "C:/Users/username/Projects"
+]
+```
+
+All file operations validated against this list.
+
+---
+
+# System Automation Rules
+
+Only predefined actions are executable.
+
+```python
+ALLOWED_ACTIONS = {
+    "shutdown": shutdown_pc,
+    "restart": restart_pc,
+    "backup": run_backup
+}
+```
+
+No arbitrary shell execution allowed.
+
+---
+
+# Remote Access Setup
+
+## Recommended: Tailscale VPN
+
+1. Install Tailscale on PC
+2. Install Tailscale on phone
+3. Connect both to same network
+4. Access API via Tailscale IP
 
 No router port forwarding required.
 
-Wake on LAN Setup
+---
 
-Requirements:
+# Wake on LAN Setup
 
-BIOS Wake on LAN enabled
+### Requirements
 
-Network adapter configured
+- BIOS Wake on LAN enabled
+- Network adapter configured
+- Secondary device always online or router support
 
-Secondary device always online or router support
+### Optional Architecture
 
-Optional architecture:
-Phone → small always on device → magic packet → PC boots → AI server available
+```
+Phone → Always On Device → Magic Packet → PC Boots → AI Server Available
+```
 
-Multi User Future Plan
+---
+
+# Multi User Future Plan
 
 Prepared for:
 
-User table
+- User table
+- Role based permissions
+- Separate vector stores per user
+- Separate document folders per user
 
-Role based permissions
+Future data layout:
 
-Separate vector stores per user
-
-Separate document folders per user
-
-Data layout future ready:
-
+```
 data/
-vector_store/{user_id}/
-documents/{user_id}/
-Security Model
+  vector_store/{user_id}/
+  documents/{user_id}/
+```
 
-JWT authentication
+---
 
-Path validation
+# Security Model
 
-Action validation
+| Feature            | Status      |
+| ------------------ | ----------- |
+| JWT authentication | Enabled     |
+| Path validation    | Enforced    |
+| Action validation  | Enforced    |
+| Rate limiting      | Ready       |
+| VPN first exposure | Recommended |
 
-Rate limiting ready
+---
 
-VPN first exposure strategy
+# Roadmap
 
-Roadmap
+## Phase 1
 
-Phase 1:
-Refactor backend into modular architecture
+Refactor backend into modular architecture.
 
-Phase 2:
-Add file management endpoints
+## Phase 2
 
-Phase 3:
-Add authentication layer
+Add file management endpoints.
 
-Phase 4:
-Add system automation
+## Phase 3
 
-Phase 5:
-Enable remote VPN access
+Add authentication layer.
 
-Phase 6:
-Add Wake on LAN integration
+## Phase 4
 
-Phase 7:
-Add database for multi user
+Add system automation.
 
-Long Term Vision
+## Phase 5
+
+Enable remote VPN access.
+
+## Phase 6
+
+Add Wake on LAN integration.
+
+## Phase 7
+
+Add database for multi user.
+
+---
+
+# Long Term Vision
 
 AI Server becomes:
 
-Personal knowledge engine
+- Personal knowledge engine
+- Remote workstation assistant
+- Project management AI
+- Secure automation layer
+- Fully private infrastructure
 
-Remote workstation assistant
-
-Project management AI
-
-Secure automation layer
-
-Fully private infrastructure
-
-Not a chatbot.
-A personal AI system.
+> Not a chatbot.  
+> A personal AI system.
