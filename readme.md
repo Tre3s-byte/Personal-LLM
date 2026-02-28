@@ -55,30 +55,30 @@ The goal is full ownership, privacy, and extensibility.
 - FAISS vector store
 - Document ingestion pipeline
 - Context injection before generation
-<div style="margin-left: 1.5em;">
 
-<h3> Phase 1, structural correctness </h3>
-<ul>
-<li> Persistent vector_store abstraction</li>
-<li> Proper embeddings service separation</li>
-<li> Metadata support</li>
-<li> Safe rebuild and reload</li>
-</ul>
-<h3> Phase 2, retrieval quality</h3>
-<ul>
-<li> Query normalization</li>
-<li> Hybrid search, semantic plus keyword</li>
-<li> Re ranking stage</li>
-<li> Dynamic top_k based on token budget</li>
-</ul>
-<h3> Phase 3, system integration</h3>
-<ul>
-<li> Router aware RAG triggers</li>
-<li> RAG specific prompt templates</li>
-<li> Context compression</li>
-<li> Telemetry for retrieval quality</li>
-</ul>
-</div>
+    <div style="margin-left: 1.5em">
+      <h3>Phase 1, structural correctness</h3>
+      <ul>
+        <li>Persistent vector_store abstraction</li>
+        <li>Proper embeddings service separation</li>
+        <li>Metadata support</li>
+        <li>Safe rebuild and reload</li>
+      </ul>
+      <h3>Phase 2, retrieval quality</h3>
+      <ul>
+        <li>Query normalization</li>
+        <li>Hybrid search, semantic plus keyword</li>
+        <li>Re ranking stage</li>
+        <li>Dynamic top_k based on token budget</li>
+      </ul>
+      <h3>Phase 3, system integration</h3>
+      <ul>
+        <li>Router aware RAG triggers</li>
+        <li>RAG specific prompt templates</li>
+        <li>Context compression</li>
+        <li>Telemetry for retrieval quality</li>
+      </ul>
+    </div>
 
 ## 3. File Access Layer
 
