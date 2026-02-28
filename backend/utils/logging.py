@@ -1,78 +1,77 @@
 import json
 import logging
 import logging.config
-from typing import Any
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
-class JsonFormatter(logging.Formatter):
-    def _sanitize(self, obj):
-        if obj is ...:
-            return None
-        if isinstance(obj, dict):
-            return {k: self._sanitize(v) for k, v in obj.items()}
-        if isinstance(obj, list):
-            return [self._sanitize(v) for v in obj]
-        return obj
+# ---------------------------------------------------------
+# JSON Formatter
+# ---------------------------------------------------------
 
+
+class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        payload = {
+        log_record = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
+            "message": record.getMessage(),
         }
 
-        # If structured telemetry
-        if hasattr(record, "event_payload"):
-            payload.update(record.event_payload)
-        else:
-            payload["message"] = record.getMessage()
+        if hasattr(record, "extra_data"):
+            log_record.update(record.extra_data)
 
-        safe_payload = self._sanitize(payload)
+        # If response exists, preserve formatting cleanly
+        if "response" in log_record and isinstance(log_record["response"], str):
+            log_record["response"] = log_record["response"].strip()
 
-        return json.dumps(safe_payload, ensure_ascii=False)
+        return (
+            "\n"
+            + json.dumps(
+                log_record,
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n"
+        )
 
+
+# ---------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------
 
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "standard": {
-            "format": "%(asctime)s|%(levelname)s|%(name)s|%(message)s",
-        },
         "json": {
             "()": JsonFormatter,
         },
     },
     "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "level": "INFO",
-            "formatter": "standard",
-            "stream": "ext://sys.stdout",
-        },
         "app_file": {
             "class": "logging.handlers.RotatingFileHandler",
             "level": "INFO",
-            "formatter": "standard",
+            "formatter": "json",
             "filename": str(LOG_DIR / "app.log"),
             "encoding": "utf-8",
-            "maxBytes": 5_000_000,
-            "backupCount": 3,
+            "maxBytes": 10_000_000,
+            "backupCount": 5,
         },
         "inference_file": {
             "class": "logging.handlers.RotatingFileHandler",
             "level": "INFO",
-            "formatter": "standard",
+            "formatter": "json",
             "filename": str(LOG_DIR / "inference.log"),
             "encoding": "utf-8",
-            "maxBytes": 5_000_000,
-            "backupCount": 3,
+            "maxBytes": 10_000_000,
+            "backupCount": 5,
         },
         "telemetry_file": {
             "class": "logging.handlers.RotatingFileHandler",
@@ -80,40 +79,44 @@ LOGGING_CONFIG = {
             "formatter": "json",
             "filename": str(LOG_DIR / "telemetry.jsonl"),
             "encoding": "utf-8",
-            "maxBytes": 5_000_000,
-            "backupCount": 3,
+            "maxBytes": 10_000_000,
+            "backupCount": 5,
         },
     },
     "loggers": {
         "services.inference": {
-            "handlers": ["inference_file", "console"],
+            "handlers": ["inference_file", "app_file"],
             "level": "INFO",
             "propagate": False,
         },
         "telemetry": {
-            "handlers": ["telemetry_file"],
+            "handlers": ["telemetry_file", "app_file"],
             "level": "INFO",
             "propagate": False,
         },
     },
     "root": {
         "level": "INFO",
-        "handlers": ["console", "app_file"],
+        "handlers": ["app_file"],
     },
 }
 
 
-def setup_logging() -> None:
+def setup_logging():
     logging.config.dictConfig(LOGGING_CONFIG)
 
 
 inference_logger = logging.getLogger("services.inference")
 telemetry_logger = logging.getLogger("telemetry")
+app_logger = logging.getLogger("app")
+
+
+# ---------------------------------------------------------
+# Helper
+# ---------------------------------------------------------
 
 
 def _sanitize(obj: Any):
-    if obj is ...:
-        return None
     if isinstance(obj, dict):
         return {k: _sanitize(v) for k, v in obj.items()}
     if isinstance(obj, list):
@@ -121,53 +124,87 @@ def _sanitize(obj: Any):
     return obj
 
 
-def log_inference_started(model_name: str, strategy: str | None = None) -> None:
+# ---------------------------------------------------------
+# Inference Logging
+# ---------------------------------------------------------
+
+
+def log_inference_request(
+    *,
+    request_id: str,
+    prompt: str,
+    model_name: str,
+    strategy: str | None = None,
+):
     inference_logger.info(
-        f"Starting routed inference | model={model_name} strategy={strategy}"
+        "inference_request_received",
+        extra={
+            "extra_data": {
+                "request_id": request_id,
+                "prompt": prompt,
+                "model_used": model_name,
+                "strategy": strategy,
+                "event": "request_received",
+            }
+        },
     )
 
 
-def log_inference_completed(model_name: str, latency_seconds: float) -> None:
+def log_inference_response(
+    *,
+    request_id: str,
+    response_text: str,
+    model_name: str,
+    inference_process_time: float,
+):
     inference_logger.info(
-        f"Completed routed inference | model={model_name} latency={latency_seconds:.2f}s"
+        "inference_response_generated",
+        extra={
+            "extra_data": {
+                "request_id": request_id,
+                "response": response_text,
+                "model_used": model_name,
+                "inference_process_time": inference_process_time,
+                "event": "response_generated",
+            }
+        },
     )
+
+
+# ---------------------------------------------------------
+# Telemetry Logging
+# ---------------------------------------------------------
 
 
 def log_inference_telemetry(
     *,
-    model: str,
+    request_id: str,
+    model_used: str,
     task_type: str | None,
-    strategy: str | None,
-    latency_seconds: float,
+    inference_process_time: float,
     prompt_tokens: int,
     completion_tokens: int,
     total_tokens: int,
-    models_used: list[str] | None = None,
-    chunk_info: dict[str, Any] | None = None,
-) -> None:
+):
     tokens_per_second = (
-        round(total_tokens / latency_seconds, 4)
-        if latency_seconds > 0 and total_tokens > 0
+        round(total_tokens / inference_process_time, 4)
+        if inference_process_time > 0
         else None
     )
 
     payload = {
         "event": "inference_complete",
-        "model": model,
-        "models_used": models_used or [model],
+        "request_id": request_id,
+        "model_used": model_used,
         "task_type": task_type,
-        "strategy": strategy,
-        "latency_seconds": round(latency_seconds, 4),
+        "inference_process_time": inference_process_time,
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "total_tokens": total_tokens,
         "tokens_per_second": tokens_per_second,
-        "chunk_info": chunk_info
-        or {
-            "chunk_count": 1,
-            "chunk_size": None,
-            "chunk_strategy": "none",
-        },
     }
 
-    telemetry_logger.info("", extra={"event_payload": _sanitize(payload)})
+    telemetry_logger.info(
+        "telemetry_recorded",
+        extra={"extra_data": _sanitize(payload)},
+    )
