@@ -55,36 +55,30 @@ The goal is full ownership, privacy, and extensibility.
 - FAISS vector store
 - Document ingestion pipeline
 - Context injection before generation
+<div style="margin-left: 1.5em;">
 
-> - ### Phase 1, structural correctness
+### Phase 1, structural correctness
 
-> - • Persistent vector_store abstraction
+- Persistent vector_store abstraction
+- Proper embeddings service separation
+- Metadata support
+- Safe rebuild and reload
 
-> - • Proper embeddings service separation
+### Phase 2, retrieval quality
 
-> - • Metadata support
+- Query normalization
+- Hybrid search, semantic plus keyword
+- Re ranking stage
+- Dynamic top_k based on token budget
 
-> - • Safe rebuild and reload
+### Phase 3, system integration
 
-> - ### Phase 2, retrieval quality
+- Router aware RAG triggers
+- RAG specific prompt templates
+- Context compression
+- Telemetry for retrieval quality
 
-> - • Query normalization
-
-> - • Hybrid search, semantic plus keyword
-
-> - • Re ranking stage
-
-> - • Dynamic top_k based on token budget
-
-> - ### Phase 3, system integration
-
-> - • Router aware RAG triggers
-
-> - • RAG specific prompt templates
-
-> - • Context compression
-
-> - • Telemetry for retrieval quality
+</div>
 
 ## 3. File Access Layer
 
