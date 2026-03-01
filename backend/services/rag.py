@@ -6,7 +6,7 @@ from typing import List
 from PyPDF2 import PdfReader
 import config
 import logging
-
+import re
 
 from .embeddings import get_embedding_service
 
@@ -80,6 +80,14 @@ class LocalRAG:
 logging.getLogger("PyPDF2._cmap").setLevel(logging.ERROR)
 
 
+def looks_sensitive(text: str) -> bool:
+    lower = text.lower()
+    for pattern in config.SECRET_PATTERNS:
+        if re.search(pattern, lower):
+            return True
+    return False
+
+
 def load_documents(paths: List[Path] = None) -> List[str]:
     if paths is None:
         paths = config.RAG_PATHS
@@ -91,7 +99,6 @@ def load_documents(paths: List[Path] = None) -> List[str]:
             continue
 
         for root, dirs, files in os.walk(base_path):
-            # Prevent entering excluded directories
             dirs[:] = [
                 d
                 for d in dirs
@@ -99,21 +106,44 @@ def load_documents(paths: List[Path] = None) -> List[str]:
             ]
 
             for filename in files:
+                if filename.startswith("."):
+                    continue
+
                 file = Path(root) / filename
 
                 try:
-                    if file.suffix.lower() == ".txt":
-                        text = file.read_text(encoding="utf-8", errors="ignore")
-                        if text.strip():
-                            all_texts.append(text)
+                    # Skip very large files
+                    size_mb = file.stat().st_size / (1024 * 1024)
+                    if size_mb > config.MAX_FILE_SIZE_MB:
+                        continue
+                except Exception:
+                    continue
 
-                    elif file.suffix.lower() == ".pdf":
+                try:
+                    text = ""
+
+                    # Try PDF first
+                    if file.suffix.lower() == ".pdf":
                         reader = PdfReader(file)
                         text = "\n".join(
                             page.extract_text() or "" for page in reader.pages
                         )
-                        if text.strip():
-                            all_texts.append(text)
+                    else:
+                        # Try reading as UTF-8 text
+                        text = file.read_text(encoding="utf-8", errors="ignore")
+
+                    if not text or not text.strip():
+                        continue
+
+                    # Basic binary detection, skip if too many null bytes
+                    if "\x00" in text:
+                        continue
+
+                    # Secret detection AFTER reading
+                    if looks_sensitive(text):
+                        continue
+
+                    all_texts.append(text)
 
                 except Exception:
                     continue

@@ -38,3 +38,4 @@ app.txt
 inference_log.txt
 telemetry.json
 index.html
+faiss_index.index

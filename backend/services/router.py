@@ -5,6 +5,7 @@ from .chat_manager import extract_last_user_message
 
 # ---- Precompiled patterns ----
 
+
 RECOMMEND_PATTERN = re.compile(
     r"\b(recommend|recommendation|suggest|looking for|any good|similar to|based on)\b",
     re.IGNORECASE,
