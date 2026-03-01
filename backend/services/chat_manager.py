@@ -8,11 +8,13 @@ os.makedirs(CHATS_DIR, exist_ok=True)
 
 conversations = {}
 
+
 def extract_last_user_message(messages):
     for msg in reversed(messages):
         if msg.get("role") == "user":
             return msg.get("content", "")
     return ""
+
 
 def list_chats():
     return [f.replace(".json", "") for f in os.listdir(CHATS_DIR)]

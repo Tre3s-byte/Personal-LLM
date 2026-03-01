@@ -16,7 +16,6 @@ def _generate_with_model(
     messages: List[Dict[str, str]],
     max_tokens: int | None = None,
 ) -> Dict[str, Any]:
-
     if model_name not in MODEL_CONFIG:
         raise ValueError(f"Unknown model: {model_name}")
 
@@ -76,7 +75,6 @@ def _aggregate_usage(aggregate: Dict[str, int], usage: Dict[str, int]):
 
 
 def _hierarchical_log_generate(model_name: str, messages: List[Dict[str, str]]):
-
     latest_text = _extract_latest_user_text(messages)
     chunks = chunk_log_text(latest_text, max_tokens=1000)
 
@@ -133,7 +131,6 @@ def _hierarchical_log_generate(model_name: str, messages: List[Dict[str, str]]):
 
 
 def _structured_code_generate(model_name: str, messages: List[Dict[str, str]]):
-
     latest_text = _extract_latest_user_text(messages)
     code_chunks = chunk_code(latest_text, max_tokens=900)
 
@@ -218,7 +215,6 @@ def run_routed_inference(
             "chunk_size": None,
             "chunk_strategy": "none",
         }
-
 
     if isinstance(response, dict):
         response.setdefault("models_used", [model_name])

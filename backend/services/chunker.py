@@ -13,7 +13,9 @@ def _message_tokens(message: Dict[str, str]) -> int:
     return estimate_tokens(role) + estimate_tokens(content) + 4
 
 
-def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int) -> List[Dict[str, str]]:
+def trim_chat_history(
+    messages: List[Dict[str, str]], max_tokens: int
+) -> List[Dict[str, str]]:
     """Keep system prompts and newest conversational turns under a token budget."""
     if not messages:
         return []
@@ -40,7 +42,9 @@ def _split_log_blocks(text: str) -> List[str]:
     if not lines:
         return []
 
-    ts_pattern = re.compile(r"^\s*(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}|\[\d{2}:\d{2}:\d{2}\]|\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})")
+    ts_pattern = re.compile(
+        r"^\s*(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}|\[\d{2}:\d{2}:\d{2}\]|\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})"
+    )
 
     blocks: List[str] = []
     current: List[str] = []
@@ -137,7 +141,7 @@ def chunk_code(text: str, max_tokens: int) -> List[str]:
         # Fallback to paragraph/blank-line segmentation for non-python code.
         segments = [segment for segment in text.split("\n\n") if segment.strip()]
     else:
-        segments = ["\n".join(lines[start - 1:end]) for start, end in spans]
+        segments = ["\n".join(lines[start - 1 : end]) for start, end in spans]
 
     chunks: List[str] = []
     current_segments: List[str] = []

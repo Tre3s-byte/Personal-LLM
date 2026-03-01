@@ -12,16 +12,22 @@ import logging
 import time
 import uuid
 
+# Import LocalRAG instance from rag.py
+from services.rag import LocalRAG, build_rag_index
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# Initialize RAG asynchronously (or at startup in main.py)
+rag_engine: LocalRAG = build_rag_index()
 
 
 @router.post("/chat")
 async def chat(request: Request):
     logger.info("Received /chat request")
 
+    # Read request body
     raw = await request.body()
-
     try:
         body = json.loads(raw)
     except json.JSONDecodeError as e:
@@ -41,17 +47,20 @@ async def chat(request: Request):
     for msg in messages:
         if not isinstance(msg, dict):
             raise HTTPException(status_code=400, detail="Each message must be a dict")
-
         if "role" not in msg or "content" not in msg:
             raise HTTPException(
                 status_code=400, detail="Each message must contain role and content"
             )
+
+    # Determine routing first
+    routing = route_request(messages)
+    model_name = routing.get("target_model")
+
+    # RAG retrieval only if required
     if routing.get("requires_rag"):
         user_query = messages[-1]["content"]
         retrieved_chunks = rag_engine.search(user_query, top_k=4)
-
         context_block = "\n\n".join(retrieved_chunks)
-
         messages = [
             {
                 "role": "system",
@@ -59,12 +68,8 @@ async def chat(request: Request):
                 + context_block,
             }
         ] + messages
-    routing = route_request(messages)
-    model_name = routing["target_model"]
 
     request_id = str(uuid.uuid4())
-
-    # Combine prompt for logging
     prompt_text = "\n".join([m["content"] for m in messages])
 
     log_inference_request(
@@ -84,9 +89,7 @@ async def chat(request: Request):
     )
 
     latency = time.perf_counter() - start
-
     usage = response.get("usage", {}) if isinstance(response, dict) else {}
-
     response_text = response.get("text", "")
 
     log_inference_response(
@@ -107,5 +110,4 @@ async def chat(request: Request):
     )
 
     logger.info("Generated response successfully")
-
     return {"response": response_text}

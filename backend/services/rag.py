@@ -1,69 +1,148 @@
-from sentence_transformers import SentenceTransformer
+import os
 import faiss
 import numpy as np
-from .chunker import chunk_code
 from pathlib import Path
-from pathlib import Path
+from typing import List
 from PyPDF2 import PdfReader
+import config
+import logging
 
 
-def build_index(self, texts):
-    if not texts:
-        raise ValueError("No documents to index. Check your load_documents function.")
-    embeddings = self.model.encode(texts, convert_to_numpy=True, show_progress_bar=True)
-    dimension = embeddings.shape[1]  # now safe
-    self.index = faiss.IndexFlatL2(dimension)
-    self.index.add(np.array(embeddings))
-    self.documents = texts
+from .embeddings import get_embedding_service
 
 
 class LocalRAG:
     def __init__(self):
-        self.model = SentenceTransformer("all-MiniLM-L6-v2")
+        self.embedder = get_embedding_service()
         self.index = None
-        self.documents = []
+        self.documents: List[str] = []
 
-    def build_index(self, texts):
-        embeddings = self.model.encode(texts)
-        dimension = embeddings.shape[1]
+    def build_index(self, texts: List[str]):
+        if not texts:
+            raise ValueError("No documents provided to build index")
+        embeddings = self.embedder.embed_text(texts)
+        embeddings = np.array(embeddings, dtype="float32")
+        faiss.normalize_L2(embeddings)
 
-        self.index = faiss.IndexFlatL2(dimension)
-        self.index.add(np.array(embeddings))
+        dimensions = embeddings.shape[-1]
+        self.index = faiss.IndexFlatL2(dimensions)
+        self.index.add(embeddings)
+
         self.documents = texts
+        self.save_index(config.RAG_INDEX_PATH)
 
-    def search(self, query, top_k=4):
-        query_vec = self.model.encode([query])
+    def save_index(self, path: str):
+        if self.index is None:
+            return
+        index_dir = Path(path).parent
+        index_dir.mkdir(parents=True, exist_ok=True)
+        faiss.write_index(self.index, path)
+        doc_path = path + ".docs"
+        with open(doc_path, "w", encoding="utf-8") as f:
+            for doc in self.documents:
+                f.write(doc.replace("\n", " " + "\n"))
+
+    def load_index(self, path: str):
+        if not Path(path).exists():
+            return False
+        self.index = faiss.read_index(path)
+
+        doc_path = path + ".docs"
+        self.documents = []
+        if Path(doc_path).exists():
+            with open(doc_path, "r", encoding="utf-8") as f:
+                self.documents = [line.strip() for line in f if line.strip()]
+        return True
+
+    def search(self, query: str, top_k: int = 4) -> List[str]:
+        if self.index is None:
+            raise []
+
+        query_vec = self.embedder.embed_text(query)
+
+        if not isinstance(query_vec, np.ndarray):
+            query_vec = np.array(query_vec)
+
+        query_vec = query_vec.astype("float32").reshape(1, -1)
+
+        faiss.normalize_L2(query_vec)
+
         distances, indices = self.index.search(query_vec, top_k)
 
-        return [self.documents[i] for i in indices[0]]
+        results = []
+        for idx in indices[0]:
+            if 0 <= idx < len(self.documents):
+                results.append(self.documents[idx])
+
+        return results
 
 
-def load_documents(paths=None):
+logging.getLogger("PyPDF2._cmap").setLevel(logging.ERROR)
+
+
+def load_documents(paths: List[Path] = None) -> List[str]:
     if paths is None:
-        paths = [Path.home() / "Documents", Path.home() / "Downloads"]
+        paths = config.RAG_PATHS
 
     all_texts = []
-    for folder in paths:
-        for file in folder.rglob("*"):
-            if file.suffix.lower() == ".txt":
-                all_texts.append(file.read_text(encoding="utf-8"))
-            elif file.suffix.lower() == ".pdf":
+
+    for base_path in paths:
+        if not base_path.exists():
+            continue
+
+        for root, dirs, files in os.walk(base_path):
+            # Prevent entering excluded directories
+            dirs[:] = [
+                d
+                for d in dirs
+                if d not in config.EXCLUDED_DIRS and not d.startswith(".")
+            ]
+
+            for filename in files:
+                file = Path(root) / filename
+
                 try:
-                    reader = PdfReader(file)
-                    text = "\n".join(page.extract_text() or "" for page in reader.pages)
-                    if text.strip():
-                        all_texts.append(text)
-                except Exception as e:
-                    print(f"Failed to read {file}: {e}")
+                    if file.suffix.lower() == ".txt":
+                        text = file.read_text(encoding="utf-8", errors="ignore")
+                        if text.strip():
+                            all_texts.append(text)
+
+                    elif file.suffix.lower() == ".pdf":
+                        reader = PdfReader(file)
+                        text = "\n".join(
+                            page.extract_text() or "" for page in reader.pages
+                        )
+                        if text.strip():
+                            all_texts.append(text)
+
+                except Exception:
+                    continue
 
     return all_texts
 
 
-def chunk_text(text, chunk_size=1000, overlap=200):
+def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
     chunks = []
     start = 0
+
     while start < len(text):
         end = start + chunk_size
         chunks.append(text[start:end])
-        start = end - overlap  # overlap
+        start = end - overlap
+
     return chunks
+
+
+def build_rag_index() -> LocalRAG:
+    rag = LocalRAG()
+
+    raw_docs = load_documents()
+
+    all_chunks = []
+    for doc in raw_docs:
+        chunks = chunk_text(doc)
+        all_chunks.extend(chunks)
+
+    rag.build_index(all_chunks)
+
+    return rag
