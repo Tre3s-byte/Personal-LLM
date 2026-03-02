@@ -1,95 +1,122 @@
 """Retrieval-Augmented Generation primitives and document ingestion pipeline."""
 
+import re
 import os
 import faiss
-import numpy as np
-from pathlib import Path
-from typing import List
-from PyPDF2 import PdfReader
-import backend.config
 import logging
-import re
+import hashlib
 
+import numpy as np
+from typing import List
+from pathlib import Path
+from PyPDF2 import PdfReader
+
+
+import backend.config as config
+from db.session import SessionLocal
+from sqlalchemy.orm import Session
+from db.models import Document, Chunk
+from .vector_store import FaissVectorStore
 from .embeddings import get_embedding_service
 
 
 class LocalRAG:
     def __init__(self):
-        self.embedder = None
-        self.index = None
-        self.documents: List[str] = []
+        self.embedder = get_embedding_service()
 
-    def _get_embedder(self):
-        if self.embedder is None:
-            self.embedder = get_embedding_service()
-        return self.embedder
+        # Determine embedding dimension once
+        test_vector = self.embedder.embed_texts(["dimension_check"])
+        dim = len(test_vector[0])
 
-    def build_index(self, texts: List[str]):
-        if not texts:
-            raise ValueError("No documents provided to build index")
+        self.vector_store = FaissVectorStore(
+            embedding_dim=dim,
+            index_path=config.RAG_INDEX_PATH,
+        )
 
-        embedder = self._get_embedder()
-        embeddings = embedder.embed_texts(texts)
-        embeddings = np.array(embeddings, dtype="float32")
-        faiss.normalize_L2(embeddings)
-
-        dimensions = embeddings.shape[-1]
-        self.index = faiss.IndexFlatL2(dimensions)
-        self.index.add(embeddings)
-
-        self.documents = texts
-        self.save_index(config.RAG_INDEX_PATH)
-
-    def save_index(self, path: str):
-        if self.index is None:
-            return
-        index_dir = Path(path).parent
-        index_dir.mkdir(parents=True, exist_ok=True)
-        faiss.write_index(self.index, path)
-        doc_path = path + ".docs"
-        with open(doc_path, "w", encoding="utf-8") as f:
-            for doc in self.documents:
-                f.write(doc.replace("\n", " " + "\n"))
-
-    def load_index(self, path: str):
-        if not Path(path).exists():
-            return False
-        self.index = faiss.read_index(path)
-
-        doc_path = path + ".docs"
-        self.documents = []
-        if Path(doc_path).exists():
-            with open(doc_path, "r", encoding="utf-8") as f:
-                self.documents = [line.strip() for line in f if line.strip()]
-        return True
-
-    def search(self, query: str, top_k: int = 4) -> List[str]:
-        if self.index is None:
-            raise RuntimeError("Index not loaded")
-        embedder = self._get_embedder()
-        print("Dimensión del índice:", self.index.d)  # 384
-        query_vec = embedder.embed_texts(query)
-        query_vec = np.array(query_vec, dtype="float32").reshape(1, -1)
-        print("Dimensión del query:", query_vec.shape[1])  # 384
-
-        if not isinstance(query_vec, np.ndarray):
-            query_vec = np.array(query_vec)
-
-        query_vec = query_vec.astype("float32").reshape(1, -1)
-
-        faiss.normalize_L2(query_vec)
-        if query_vec.shape[1] != self.index.d:
-            raise ValueError(
-                f"Dimensión del query ({query_vec.shape[1]}) no coincide con índice ({self.index.d})"
+    def _ensure_vector_store(self, dim: int):
+        if self.vector_store is None:
+            self.vector_store = FaissVectorStore(
+                embedding_dim=dim,
+                index_path=config.RAG_INDEX_PATH,
             )
-        distances, indices = self.index.search(query_vec, top_k)
 
-        results = []
-        for idx in indices[0]:
-            if 0 <= idx < len(self.documents):
-                results.append(self.documents[idx])
+    def _checksum(self, path: Path):
+        return hashlib.md5(path.read_bytes()).hexdigest()
 
-        return results
+    def sync(self):
+        session: Session = SessionLocal()
+
+        for base_path in config.RAG_PATHS:
+            for file in base_path.rglob("*"):
+                if not file.is_file():
+                    continue
+
+                checksum = self._checksum(file)
+                mtime = str(file.stat().st_mtime)
+
+                doc = session.query(Document).filter(Document.path == str(file)).first()
+
+                if doc and doc.checksum == checksum:
+                    continue
+
+                if doc:
+                    self._delete_document_chunks(session, doc)
+
+                text = file.read_text(encoding="utf-8", errors="ignore")
+                doc = Document(
+                    path=str(file),
+                    checksum=checksum,
+                    mtime=mtime,
+                )
+                session.add(doc)
+                session.flush()
+
+                chunks = chunk_text(text)
+
+                embeddings = self.embedder.embed_texts(chunks)
+                embeddings = np.array(embeddings, dtype="float32")
+
+                self._ensure_vector_store(embeddings.shape[1])
+
+                for i, (chunk_text_value, emb) in enumerate(zip(chunks, embeddings)):
+                    chunk = Chunk(
+                        document_id=doc.id,
+                        chunk_index=i,
+                        text=chunk_text_value,
+                    )
+                    session.add(chunk)
+                    session.flush()
+
+                    self.vector_store.add(
+                        np.array([emb]),
+                        np.array([chunk.id]),
+                    )
+
+                    chunk.vector_id = chunk.id
+
+        session.commit()
+        self.vector_store.save()
+        session.close()
+
+    def _delete_document_chunks(self, session, doc):
+        ids = [c.vector_id for c in doc.chunks if c.vector_id is not None]
+        if ids:
+            self.vector_store.remove(np.array(ids))
+
+        session.delete(doc)
+
+    def search(self, query: str, top_k: int = 4):
+        session = SessionLocal()
+
+        query_emb = self.embedder.embed_texts([query])
+        query_emb = np.array(query_emb, dtype="float32")
+
+        ids = self.vector_store.search(query_emb, top_k)
+
+        chunks = session.query(Chunk).filter(Chunk.id.in_(ids.tolist())).all()
+
+        session.close()
+        return [c.text for c in chunks]
 
 
 logging.getLogger("PyPDF2._cmap").setLevel(logging.ERROR)
@@ -178,37 +205,54 @@ def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[st
     return chunks
 
 
-def build_rag_index() -> LocalRAG:
+def build_rag_index(batch_size: int = 5000) -> LocalRAG:
+    from pathlib import Path
+    import backend.config as config
+
+    # Elimina índice viejo si existe
+    Path(config.RAG_INDEX_PATH).unlink(missing_ok=True)
+    Path(config.RAG_INDEX_PATH + ".docs").unlink(missing_ok=True)
+
     rag = LocalRAG()
     raw_docs = load_documents()
 
+    # Fragmenta los documentos en chunks
     all_chunks = []
     for doc in raw_docs:
-        chunks = chunk_text(doc)
-        all_chunks.extend(chunks)
+        all_chunks.extend(chunk_text(doc))
+
+    if not all_chunks:
+        raise ValueError("No se encontraron documentos para indexar")
 
     embedder = get_embedding_service()
-    embeddings = embedder.embed_texts(all_chunks)
-    embeddings = np.array(embeddings, dtype="float32")
-    faiss.normalize_L2(embeddings)
+    embeddings_list = []
 
-    dims = embeddings.shape[1]  # normalmente 384
     print(
-        "[BUILD] Dimensiones de embeddings:",
-        dims,
-        "Cantidad de chunks:",
-        len(all_chunks),
+        f"[BUILD] Total de chunks: {len(all_chunks)}. Procesando en batches de {batch_size}..."
     )
 
+    # Procesa embeddings por lotes
+    for i in range(0, len(all_chunks), batch_size):
+        batch = all_chunks[i : i + batch_size]
+        batch_emb = embedder.embed_texts(batch)
+        embeddings_list.append(batch_emb)
+
+    # Une todos los embeddings y normaliza
+    embeddings = np.vstack(embeddings_list).astype("float32")
+    faiss.normalize_L2(embeddings)
+
+    dims = embeddings.shape[1]
+    print(
+        f"[BUILD] Dimensiones de embeddings: {dims}, vectores totales: {embeddings.shape[0]}"
+    )
+
+    # Crea índice FAISS
     rag.index = faiss.IndexFlatL2(dims)
     rag.index.add(embeddings)
     rag.documents = all_chunks
 
-    print("[BUILD] Índice construido con", rag.index.ntotal, "vectores")
-    rag.save_index(backend.config.RAG_INDEX_PATH)
-    print("[SAVE] Índice guardado en", backend.config.RAG_INDEX_PATH)
+    # Guarda índice y textos
+    rag.save_index(config.RAG_INDEX_PATH)
+    print(f"[SAVE] Índice guardado en {config.RAG_INDEX_PATH}")
 
     return rag
-
-
-backend.config

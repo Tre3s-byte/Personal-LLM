@@ -4,21 +4,18 @@ This module wires the API routers, logging configuration, database table
 creation, and asynchronous RAG ingestion lifecycle.
 """
 
-import os
 import logging
 import asyncio
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-from backend import config
-from backend.app.routes import router as app_router
-from backend.api.routes import router as api_router
-from backend.api.routes import set_rag_engine
-from backend.utils.logging import setup_logging
-from backend.services.rag import LocalRAG, load_documents, chunk_text
-from db.session import engine
 from db.models import Base
+from backend import config
+from fastapi import FastAPI
+from db.session import engine
+from backend.services.rag import LocalRAG
+from backend.utils.logging import setup_logging
+from fastapi.middleware.cors import CORSMiddleware
+from backend.app.routes import router as app_router
+from backend.api.routes import router as api_router, set_rag_engine
 
 
 # Initialize FastAPI app first
@@ -47,53 +44,39 @@ rag_init_task: asyncio.Task | None = None
 # --- Async background ingestion ---
 
 
-async def async_ingest_and_index():
-    """Build or load the retrieval index without blocking server startup."""
+async def async_sync_rag():
     global rag_store
+
+    logger.info("Initializing RAG engine...")
     rag_store = LocalRAG()
-
-    # Check if prebuilt index exists
-    if os.path.exists(config.RAG_INDEX_PATH):
-        logger.info("Loading existing RAG index...")
-        await asyncio.to_thread(rag_store.load_index, config.RAG_INDEX_PATH)
-        logger.info("RAG index loaded")
-    else:
-        logger.info("No existing index found, starting ingestion...")
-        # Load documents in background thread
-        documents = await asyncio.to_thread(load_documents)
-        # Chunk documents
-        chunks = []
-        for doc in documents:
-            chunks.extend(await asyncio.to_thread(chunk_text, doc))
-        # Build FAISS index
-        await asyncio.to_thread(rag_store.build_index, chunks)
-        # Save index for next startup
-        await asyncio.to_thread(rag_store.save_index, config.RAG_INDEX_PATH)
-        logger.info("RAG ingestion and index build complete")
-
+    logger.info("Starting RAG sync process...")
+    await asyncio.to_thread(rag_store.sync)
+    logger.info("RAG sync completed")
     set_rag_engine(rag_store)
 
 
 # Startup event must come after app is defined
 @app.on_event("startup")
 async def startup_event():
-    """Create SQLAlchemy tables at startup if they do not exist yet."""
     Base.metadata.create_all(bind=engine)
-    """Kick off background ingestion task once the server is running."""
-    # Schedule background ingestion; server will start immediately
+
     global rag_init_task
     if rag_init_task is None or rag_init_task.done():
-        rag_init_task = asyncio.create_task(async_ingest_and_index())
-    logger.info("Server started, RAG ingestion running in background")
+        rag_init_task = asyncio.create_task(async_sync_rag())
+
+    logger.info("Server started, RAG sync running in background")
 
 
 @app.get("/query")
 async def query_endpoint(q: str):
-    """Query the in-memory RAG store once ingestion has completed."""
     global rag_store
-    if not rag_store:
-        return {"error": "RAG store not ready yet"}
-    # Run retrieval in thread
+
+    if rag_store is None:
+        return {"error": "RAG not initialized yet"}
+
+    if rag_init_task and not rag_init_task.done():
+        return {"error": "RAG still syncing"}
+
     response = await asyncio.to_thread(rag_store.search, q)
     return {"query": q, "response": response}
 

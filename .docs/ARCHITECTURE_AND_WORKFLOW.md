@@ -2,192 +2,338 @@
 
 ## 1. Scope and Intent
 
-This document is a deep technical map of the current repository implementation. It is intended as a long-term memory artifact: if implementation details are forgotten, this paper should allow reconstruction of design intent, execution flow, and module responsibilities.
+This document defines the complete architectural blueprint of the Personal-LLM system. It serves as a reconstruction reference for system behavior, module boundaries, execution flow, and persistence strategy.
+
+The platform is a local-first AI orchestration stack composed of:
+
+- FastAPI backend
+- Llama.cpp model runtime
+- Router-driven inference strategies
+- SQLite-backed RAG storage
+- YouTube backup ingestion tool
+- Structured logging and telemetry
+
+---
 
 ## 2. System Topology
 
-The repository is structured as a multi-layer local AI platform:
+The repository is organized into layered responsibilities:
 
-- **Backend API layer (FastAPI)** for HTTP request handling.
-- **Inference orchestration layer** for model routing, chunking strategies, and response synthesis.
-- **Model layer** for lazy-loading llama.cpp models and caching loaded instances.
-- **RAG layer** for document ingestion, embedding generation, and nearest-neighbor retrieval via FAISS.
-- **Observability layer** with JSON logs and telemetry traces.
-- **Metadata persistence layer** (SQLite/SQLAlchemy) for document and chunk records.
-- **Frontend layer** (Vite + React starter) currently serving as a minimal UI scaffold.
+### 2.1 API Layer
+
+FastAPI application responsible for:
+
+- Request validation
+- Routing
+- Lifecycle hooks
+- Dependency injection
+
+### 2.2 Inference Orchestration Layer
+
+Handles:
+
+- Intent classification
+- Model selection
+- Chunk strategies
+- RAG injection
+- Response synthesis
+
+### 2.3 Model Runtime Layer
+
+- Lazy llama.cpp model loading
+- Model instance caching
+- Context window management
+
+### 2.4 RAG Layer (SQLite-backed)
+
+Responsible for:
+
+- Document ingestion
+- Chunk creation
+- Embedding generation
+- Vector persistence inside SQLite
+- Nearest neighbor retrieval
+
+### 2.5 Tools Layer
+
+Contains system tools such as:
+
+- YouTube backup downloader
+- External ingestion utilities
+
+### 2.6 Observability Layer
+
+- JSON structured logs
+- Rotating log files
+- Telemetry metrics
+
+---
 
 ## 3. Runtime Entry Points
 
-### 3.1 Backend startup (`backend/app/main.py`)
+### 3.1 Backend Startup
 
-Primary responsibilities:
+File: backend/app/main.py
 
-1. Instantiate FastAPI app.
-2. Install permissive CORS middleware.
-3. Configure logging via `utils.logging.setup_logging()`.
-4. Mount routers from `app.routes` and `api.routes`.
-5. Initialize SQL schema with `Base.metadata.create_all(bind=engine)`.
-6. Maintain an async RAG background ingestion path intended to load or build index artifacts.
+Responsibilities:
 
-### 3.2 Chat endpoint (`backend/api/routes.py`)
+1. Create FastAPI instance
+2. Configure CORS
+3. Initialize structured logging
+4. Mount API routers
+5. Initialize SQLite schema
+6. Initialize RAG service
+7. Optionally trigger background indexing
 
-`POST /chat` pipeline:
+---
 
-1. Read and parse raw JSON body.
-2. Validate `messages` schema (`[{role, content}, ...]`).
-3. Route request using heuristic classifier (`services.router.route_request`).
-4. If `requires_rag`, retrieve top chunks and inject a system context message.
-5. Execute model inference through threadpool (`services.inference.run_routed_inference`).
-6. Emit inference + telemetry logs.
-7. Return normalized JSON response (`{"response": <text>}`).
+## 4. Chat Execution Flow
 
-## 4. Router and Strategy Selection
+### Endpoint
 
-### 4.1 Router implementation (`backend/services/router.py`)
+POST /chat
 
-The router uses regex intent recognition and estimated token length to classify prompts into task families:
+Execution pipeline:
 
-- code review / code heavy review
-- grammar correction
-- log review / log summary
-- summarization
-- recommendation
-- generic short/long chat
-- RAG query trigger
+1. Parse JSON payload
+2. Validate message schema
+3. Route request via heuristic classifier
+4. If `requires_rag = True`
+   - Query SQLite vector store
+   - Inject top-k chunks into system context
+5. Execute inference in threadpool
+6. Emit telemetry
+7. Return normalized response
 
-### 4.2 Strategy coupling
+---
 
-Router output includes:
+## 5. Router and Strategy Selection
 
-- `target_model` (`small|medium|large`)
-- `task_type`
-- `chunk_strategy` (`None|chat|log|code`)
-- `requires_rag` when applicable
+File: backend/services/router.py
 
-The inference layer consumes this contract to choose either direct generation or two-stage chunk workflows.
+The router performs lightweight intent recognition using:
 
-## 5. Inference Pipeline
+- Regex classification
+- Token length estimation
+- Keyword detection
 
-### 5.1 Core generation (`backend/services/inference.py`)
+It outputs a routing contract:
 
-`_generate_with_model` behavior:
+```python
+{
+    "target_model": "small|medium|large",
+    "task_type": "...",
+    "chunk_strategy": "chat|log|code|None",
+    "requires_rag": bool
+}
+```
 
-- validates model id against `MODEL_CONFIG`
-- resolves model instance from `model.registry.get_model`
-- normalizes history payload shape (`utils.normalization.normalize_history_for_model`)
-- invokes llama.cpp chat completion
-- normalizes usage accounting
+This contract drives inference behavior.
 
-### 5.2 Chunked strategies
+```
+class Chunk(Base):
+**tablename** = "chunks"
 
-- **Chat strategy**: trims message history to a safe context budget.
-- **Log strategy**: chunk -> summarize each chunk -> merge summaries.
-- **Code strategy**: chunk -> summarize blocks -> synthesize reasoning answer.
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey("documents.id"))
+    content = Column(Text)
+    embedding = Column(LargeBinary)
+    created_at = Column(DateTime)
+```
 
-This architecture preserves answer quality for oversized payloads while maintaining context boundaries.
+Embeddings are stored as serialized float arrays in binary format.
 
-## 6. RAG Subsystem
+## 7.2 Ingestion Pipeline
 
-### 6.1 Document ingestion (`backend/services/rag.py`)
+**File:**  
+backend/services/rag.py
 
-`load_documents` recursively traverses configured paths, with guardrails:
+### Document Ingestion Flow
 
-- excluded directories (`config.EXCLUDED_DIRS`)
-- hidden-file skip
-- max file size filtering
-- binary content skip (`\x00` detection)
-- simple secret leakage regex filtering (`config.SECRET_PATTERNS`)
-- PDF extraction via `PyPDF2` fallback path
+1. Traverse configured directories
+2. Skip
+   - Hidden files
+   - Excluded directories
+   - Large files
+   - Binary files
+3. Extract content
+4. Chunk text
+5. Generate embeddings
+6. Persist
+   - Document metadata
+   - Chunk content
+   - Serialized embedding vectors
 
-### 6.2 Index lifecycle
+Embeddings are normalized before storage.
 
-`LocalRAG` owns:
+---
 
-- embedding service acquisition (`services.embeddings.get_embedding_service`)
-- embedding normalization
-- FAISS `IndexFlatL2` creation and query
-- index persistence (`.index` + `.docs` plain text companion)
-
-### 6.3 Retrieval flow
+## 7.3 Retrieval Flow
 
 At query time:
 
-1. embed query
-2. normalize vector
-3. FAISS nearest-neighbor search
-4. map neighbor ids to original text chunks
-5. return top-k chunk payloads for prompt injection
+1. Embed query text
+2. Normalize query vector
+3. Fetch candidate embeddings from SQLite
+4. Compute cosine similarity in memory
+5. Return top-k chunk texts
 
-## 7. Model Management Layer
+This replaces FAISS with database backed vector persistence.
 
-### 7.1 Loader (`backend/model/loader.py`)
+---
 
-Encapsulates llama.cpp object construction (`Llama`) with:
+## 8. YouTube Backup Tool
 
-- configurable model path
-- GPU layer offload count
-- context length
-- host thread count
+**File:**  
+backend/tools/youtube_backup_downloader.py
 
-### 7.2 Registry (`backend/model/registry.py`)
+### Purpose
 
-Provides lazy model initialization and process-local cache (`_model_cache`) to avoid repeated model reloads.
+Provides offline ingestion of YouTube and YouTube Music URLs for archival and RAG indexing.
 
-## 8. Token Budgeting and Chunking
+### Responsibilities
 
-### 8.1 `backend/services/chunker.py`
+- Accept YouTube or YouTube Music URL
+- Extract
+  - Title
+  - Author
+  - Description
+  - Metadata
+- Download audio or metadata
+- Store transcript or metadata into the RAG ingestion pipeline
 
-Implements lightweight heuristics:
+### Integration Flow
 
-- approximate token estimator (`len(text)>>2`)
-- history trimming preserving system prompts
-- log chunk segmentation by timestamp boundaries
-- AST-aware and fallback chunking for source code text
+1. Tool invoked via router intent
+2. Downloader fetches metadata
+3. Transcript or description is chunked
+4. Content is stored as Document and Chunks in SQLite
+5. Embeddings are generated and persisted
 
-These utilities support deterministic context management under constrained model windows.
+This makes YouTube content searchable through RAG queries.
 
-## 9. Observability and Telemetry
+---
 
-### 9.1 Logging design (`backend/utils/logging.py`)
+## 9. Model Management
 
-- JSON formatter with UTC timestamps.
-- Rotating file handlers for:
-  - app logs
-  - inference logs
-  - telemetry logs
-- helper emitters for structured inference events.
+### Loader
 
-Telemetry captures latency and token throughput (`tokens_per_second`) for downstream performance profiling.
+**File:**  
+backend/model/loader.py
 
-## 10. Data and Persistence
+Wraps llama.cpp initialization:
 
-### 10.1 SQLAlchemy models (`db/models.py`)
+- Model path
+- GPU layer count
+- Context size
+- Thread configuration
 
-- `Document` table (`files`) tracks source-level metadata.
-- `Chunk` table (`chunks`) represents embedded fragment records and lineage to source documents.
+### Registry
 
-### 10.2 DB session (`db/session.py`)
+**File:**  
+backend/model/registry.py
 
-Creates SQLite engine and declarative base used in startup table creation.
+Provides:
 
-## 11. Frontend Status
+- Lazy loading
+- In process caching
+- Singleton access pattern
 
-`frontend/src/App.jsx` is currently the default Vite React counter demo. It is not yet wired to backend endpoints, and therefore should be treated as a placeholder shell rather than an integrated product interface.
+Prevents repeated model reload overhead.
 
-## 12. Known Architectural Risks and Follow-up Targets
+---
 
-1. **Dual RAG initialization paths** exist (`app/main.py` and `api/routes.py`) and should be consolidated.
-2. **Startup ingestion hook** should be explicitly attached to FastAPI lifecycle if background indexing is required at launch.
-3. **Path defaults** in `config.py` include machine-specific locations and should be externalized.
-4. **Session factory typo risk** in DB setup should be validated in runtime tests.
-5. **RAG `.docs` serialization format** is line-based and may fragment multiline chunks; a structured format would improve fidelity.
+## 10. Chunking and Token Budgeting
 
-## 13. Recommended Maintenance Protocol
+**File:**  
+backend/services/chunker.py
 
-When modifying the stack:
+Provides:
 
-1. Update routing contract and inference consumers atomically.
-2. Keep model config + registry expectations synchronized.
-3. Preserve structured logging keys for dashboard compatibility.
-4. Rebuild and smoke-test RAG retrieval whenever ingestion logic changes.
-5. Maintain this document as the canonical architecture ledger.
+- Approximate token estimation
+- Context trimming
+- Log segmentation
+- Code aware chunking
+
+Ensures inference remains within context window constraints.
+
+---
+
+## 11. Observability
+
+**File:**  
+backend/utils/logging.py
+
+Features:
+
+- JSON structured logs
+- Rotating file handlers
+- UTC timestamps
+
+Inference metrics include:
+
+- Latency
+- Token throughput
+- Model id
+- Task type
+
+---
+
+## 12. Persistence Layer
+
+**File:**  
+backend/db/session.py
+
+Creates:
+
+```python
+engine = create_engine("sqlite:///personal_llm.db")
+SessionLocal = sessionmaker(bind=engine)
+Base = declarative_base()
+```
+
+Tables are created at startup via:
+
+```
+Base.metadata.create_all(bind=engine)
+```
+
+## 13. Updated Architectural Guarantees
+
+- No JSON based RAG storage remains
+
+- All embeddings are persisted in SQLite
+
+- YouTube content becomes first class searchable documents
+
+- Model loading is lazy and cached
+
+- Router contract is stable across inference consumers
+
+## 14. Maintenance Protocol
+
+1. When modifying the system:
+
+2. pdate router and inference contracts together
+
+3. Keep model config aligned with registry behavior
+
+4. Maintain logging schema compatibility
+
+5. Re index RAG when ingestion logic changes
+
+6. Keep this document synchronized with structural changes
+
+## 15. Long Term Design Direction
+
+- Future improvements may include:
+
+- SQLite vector indexing via extension
+
+- Async ingestion workers
+
+- Frontend integration
+
+- Incremental embedding updates
+
+- Background re index scheduler

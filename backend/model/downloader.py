@@ -53,17 +53,3 @@ def download_model(model_name: str):
 if __name__ == "__main__":
     for model in MODELS.keys():
         download_model(model)
-
-# for fragment in fragments:
-#     try:
-#         path = hf_hub_download(
-#             repo_id=,
-#             filename=fragment,
-#             local_dir=str(BASE_DIR / "backend" / "models"),
-#             force_download=True,
-#             local_dir_use_symlinks=False,
-#             token=HF_TOKEN,
-#         )
-#         print(f"Downloaded {fragment} to {path}")
-#     except Exception as e:
-#         print(f"Error downloading {fragment}: {e}")
