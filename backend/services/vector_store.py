@@ -1,3 +1,5 @@
+"""Minimal FAISS vector-store wrapper for text chunk retrieval."""
+
 import faiss
 import numpy as np
 from typing import List

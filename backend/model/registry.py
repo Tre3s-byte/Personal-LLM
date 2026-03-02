@@ -1,3 +1,5 @@
+"""Model registry that lazily initializes and caches model instances."""
+
 from pathlib import Path
 from .loader import load_model
 from config import MODEL_CONFIG

@@ -1,3 +1,5 @@
+"""Heuristic request router mapping prompts to model/strategy selections."""
+
 import re
 from config import ROUTER_LIGHT_THRESHOLD, ROUTER_HEAVY_THRESHOLD
 from services.chunker import estimate_tokens

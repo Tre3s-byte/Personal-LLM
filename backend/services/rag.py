@@ -1,3 +1,5 @@
+"""Retrieval-Augmented Generation primitives and document ingestion pipeline."""
+
 import os
 import faiss
 import numpy as np

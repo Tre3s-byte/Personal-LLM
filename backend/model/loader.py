@@ -1,3 +1,5 @@
+"""Low-level model loader for llama.cpp GGUF backends."""
+
 from llama_cpp import Llama
 from pathlib import Path  # noqa: F401
 import os

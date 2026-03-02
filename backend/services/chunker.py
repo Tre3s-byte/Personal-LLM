@@ -1,3 +1,5 @@
+"""Token estimation and chunking helpers used by routing/inference."""
+
 import ast
 import re
 from typing import Dict, List, Tuple

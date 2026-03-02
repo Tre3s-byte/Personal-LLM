@@ -1,3 +1,5 @@
+"""Database session/engine bootstrap for the local SQLite metadata DB."""
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from pathlib import Path

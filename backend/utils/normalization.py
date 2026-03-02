@@ -1,3 +1,5 @@
+"""Message-history normalization utilities for model-compatible payloads."""
+
 def coerce_content_to_text(content):
     if content is None:
         return ""

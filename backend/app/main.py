@@ -1,4 +1,8 @@
-# app/main.py
+"""FastAPI application bootstrap.
+
+This module wires the API routers, logging configuration, database table
+creation, and asynchronous RAG ingestion lifecycle.
+"""
 import os
 import logging
 import asyncio
@@ -42,6 +46,7 @@ rag_store: LocalRAG | None = None
 
 
 async def async_ingest_and_index():
+    """Build or load the retrieval index without blocking server startup."""
     global rag_store
     rag_store = LocalRAG()
 
@@ -68,10 +73,12 @@ async def async_ingest_and_index():
 # Startup event must come after app is defined
 @app.on_event("startup")
 def create_tables():
+    """Create SQLAlchemy tables at startup if they do not exist yet."""
     Base.metadata.create_all(bind=engine)
 
 
 async def startup_event():
+    """Kick off background ingestion task once the server is running."""
     # Schedule background ingestion; server will start immediately
     asyncio.create_task(async_ingest_and_index())
     logger.info("Server started, RAG ingestion running in background")
@@ -79,6 +86,7 @@ async def startup_event():
 
 @app.get("/query")
 async def query_endpoint(q: str):
+    """Query the in-memory RAG store once ingestion has completed."""
     global rag_store
     if not rag_store:
         return {"error": "RAG store not ready yet"}
@@ -90,4 +98,5 @@ async def query_endpoint(q: str):
 # --- Health check ---
 @app.get("/health")
 async def health():
+    """Liveness probe used by orchestrators and monitoring checks."""
     return {"status": "alive"}
