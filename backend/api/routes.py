@@ -19,13 +19,19 @@ import time
 import uuid
 
 # Import LocalRAG instance from rag.py
-from services.rag import LocalRAG, build_rag_index
+from services.rag import LocalRAG
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Initialize RAG asynchronously (or at startup in main.py)
-rag_engine: LocalRAG = build_rag_index()
+# Initialized during startup background ingestion in app.main.
+rag_engine: LocalRAG | None = None
+
+
+def set_rag_engine(engine: LocalRAG) -> None:
+    """Inject the ready-to-use RAG engine once ingestion completes."""
+    global rag_engine
+    rag_engine = engine
 
 
 @router.post("/chat")
@@ -65,6 +71,13 @@ async def chat(request: Request):
 
     # RAG retrieval only if required
     if routing.get("requires_rag"):
+        if rag_engine is None:
+            logger.info("RAG not ready yet; responding without retrieved context")
+            raise HTTPException(
+                status_code=503,
+                detail="RAG store not ready yet. Please retry in a moment.",
+            )
+
         user_query = messages[-1]["content"]
         retrieved_chunks = rag_engine.search(user_query, top_k=4)
         context_block = "\n\n".join(retrieved_chunks)
