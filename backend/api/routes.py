@@ -69,6 +69,39 @@ async def chat(request: Request):
     routing = route_request(messages)
     model_name = routing.get("target_model")
 
+    if routing.get("task_type") == "youtube_backup":
+        from backend.tools.youtube_backup_downloader import run_youtube_backup
+        import re
+
+        user_text = messages[-1]["content"]
+        url_match = re.search(r"(https?://\S+)", user_text)
+
+        if not url_match:
+            raise HTTPException(
+                status_code=400,
+                detail="No valid YouTube URL found in request.",
+            )
+
+        url = url_match.group(1)
+
+        start = time.perf_counter()
+        result = await run_in_threadpool(run_youtube_backup, url)
+        latency = time.perf_counter() - start
+
+        request_id = str(uuid.uuid4())
+
+        log_inference_telemetry(
+            request_id=request_id,
+            model_used="tool:youtube_backup",
+            task_type="youtube_backup",
+            inference_process_time=latency,
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+        )
+
+        return {"response": f"Download status: {result.get('status')}"}
+
     # RAG retrieval only if required
     if routing.get("requires_rag"):
         if rag_engine is None:

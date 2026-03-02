@@ -7,6 +7,15 @@ from .chat_manager import extract_last_user_message
 
 # ---- Precompiled patterns ----
 
+YOUTUBE_URL_PATTERN = re.compile(
+    r"(https?://)?(www\.)?(youtube\.com|youtu\.be)/\S+",
+    re.IGNORECASE,
+)
+
+YOUTUBE_INTENT_PATTERN = re.compile(
+    r"\b(download|backup|save)\b",
+    re.IGNORECASE,
+)
 
 RECOMMEND_PATTERN = re.compile(
     r"\b(recommend|recommendation|suggest|looking for|any good|similar to|based on)\b",
@@ -61,6 +70,8 @@ def route_request(messages):
     is_summary = SUMMARY_PATTERN.search(text) is not None
     is_recommend = RECOMMEND_PATTERN.search(text) is not None
     is_log = LOG_PATTERN.search(text) is not None
+    is_youtube_url = YOUTUBE_URL_PATTERN.search(text) is not None
+    is_youtube_intent = YOUTUBE_INTENT_PATTERN.search(text) is not None
 
     if not is_code_structure and has_code_symbols(text):
         is_code_structure = True
@@ -73,6 +84,14 @@ def route_request(messages):
         + int(is_log)
     )
     is_recommended = intention_count == 1
+
+    if is_youtube_url and is_youtube_intent:
+        return {
+            "task_type": "youtube_backup",
+            "target_model": None,
+            "chunk_strategy": None,
+            "is_recommended": True,
+        }
 
     if RAG_PATTERN.search(text):
         return {

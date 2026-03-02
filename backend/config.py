@@ -9,7 +9,7 @@ import os
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)  # Ensure runtime data directory exists
-
+DOWNLOAD_FOLDER = os.path.join(os.environ["USERPROFILE"], "Music")
 # --- RAG scanning paths ---
 
 RAG_PATHS = [Path("C:/Users/maxim")]
