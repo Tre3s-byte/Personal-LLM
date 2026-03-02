@@ -1,8 +1,8 @@
 """Heuristic request router mapping prompts to model/strategy selections."""
 
 import re
-from config import ROUTER_LIGHT_THRESHOLD, ROUTER_HEAVY_THRESHOLD
-from services.chunker import estimate_tokens
+from backend.config import ROUTER_LIGHT_THRESHOLD, ROUTER_HEAVY_THRESHOLD
+from backend.services.chunker import estimate_tokens
 from .chat_manager import extract_last_user_message
 
 # ---- Precompiled patterns ----

@@ -6,9 +6,9 @@ model/strategy, optionally injects RAG context, and records structured logs.
 
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.concurrency import run_in_threadpool
-from services.inference import run_routed_inference
-from services.router import route_request
-from utils.logging import (
+from backend.services.inference import run_routed_inference
+from backend.services.router import route_request
+from backend.utils.logging import (
     log_inference_request,
     log_inference_response,
     log_inference_telemetry,
@@ -19,7 +19,7 @@ import time
 import uuid
 
 # Import LocalRAG instance from rag.py
-from services.rag import LocalRAG
+from backend.services.rag import LocalRAG
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ async def chat(request: Request):
                 + context_block,
             }
         ] + messages
-
+    print(rag_engine.index.d)
     request_id = str(uuid.uuid4())
     prompt_text = "\n".join([m["content"] for m in messages])
 

@@ -4,7 +4,7 @@ from pathlib import Path
 from threading import Lock
 
 from .loader import load_model, unload_model
-from config import MODEL_CONFIG
+from backend.config import MODEL_CONFIG
 
 
 BASE_DIR = Path(__file__).resolve().parents[2]

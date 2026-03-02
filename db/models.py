@@ -2,7 +2,7 @@
 
 from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from session import Base
+from .session import Base
 
 
 class Document(Base):

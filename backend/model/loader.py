@@ -9,22 +9,28 @@ _llm = None
 
 
 def load_model(model_path, n_gpu_layers, n_ctx):
-    return Llama(
+    global _llm
+    _llm = Llama(
         model_path=model_path,
         n_gpu_layers=n_gpu_layers,
         n_ctx=n_ctx,
         n_batch=512,
         n_threads=max(1, os.cpu_count() - 2),
-        verbose=True,
+        verbose=False,
     )
+    print(f"[LOAD] Modelo cargado desde: {model_path}")
+    return _llm
 
 
 def unload_model(model):
     """
     Explicitly free llama.cpp native memory.
     """
+    global _llm
     try:
         del model
+        _llm = None
+        print("[UNLOAD] Modelo descargado y referencias eliminadas")
     except Exception:
         pass
     gc.collect()
@@ -34,5 +40,6 @@ def unload_model(model):
 
         if torch.cuda.is_avaible():
             torch.cuda.empty_cache()
+            print("[UNLOAD] Memoria CUDA liberada")
     except Exception:
         pass

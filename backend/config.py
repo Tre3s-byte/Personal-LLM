@@ -1,5 +1,5 @@
 from pathlib import Path
-
+import os
 # ============================================================
 # PATHS
 # ============================================================
@@ -22,7 +22,7 @@ EMBEDDINGS_PATH = "vector_store/embeddings.pkl"
 
 # --- Database paths ---
 
-SQL_BASE_DIR = Path(__file__).resolve().parents[2]
+SQL_BASE_DIR = Path(__file__).resolve().parents[1]
 DB_PATH = SQL_BASE_DIR / "db" / "metadata.sqlite"
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 

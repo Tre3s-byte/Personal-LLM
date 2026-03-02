@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 from typing import List
 from PyPDF2 import PdfReader
-import config
+import backend.config
 import logging
 import re
 
@@ -67,8 +67,10 @@ class LocalRAG:
         if self.index is None:
             raise RuntimeError("Index not loaded")
         embedder = self._get_embedder()
-
+        print("Dimensión del índice:", self.index.d)  # 384
         query_vec = embedder.embed_texts(query)
+        query_vec = np.array(query_vec, dtype="float32").reshape(1, -1)
+        print("Dimensión del query:", query_vec.shape[1])  # 384
 
         if not isinstance(query_vec, np.ndarray):
             query_vec = np.array(query_vec)
@@ -76,7 +78,10 @@ class LocalRAG:
         query_vec = query_vec.astype("float32").reshape(1, -1)
 
         faiss.normalize_L2(query_vec)
-
+        if query_vec.shape[1] != self.index.d:
+            raise ValueError(
+                f"Dimensión del query ({query_vec.shape[1]}) no coincide con índice ({self.index.d})"
+            )
         distances, indices = self.index.search(query_vec, top_k)
 
         results = []
@@ -175,7 +180,6 @@ def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[st
 
 def build_rag_index() -> LocalRAG:
     rag = LocalRAG()
-
     raw_docs = load_documents()
 
     all_chunks = []
@@ -183,6 +187,28 @@ def build_rag_index() -> LocalRAG:
         chunks = chunk_text(doc)
         all_chunks.extend(chunks)
 
-    rag.build_index(all_chunks)
+    embedder = get_embedding_service()
+    embeddings = embedder.embed_texts(all_chunks)
+    embeddings = np.array(embeddings, dtype="float32")
+    faiss.normalize_L2(embeddings)
+
+    dims = embeddings.shape[1]  # normalmente 384
+    print(
+        "[BUILD] Dimensiones de embeddings:",
+        dims,
+        "Cantidad de chunks:",
+        len(all_chunks),
+    )
+
+    rag.index = faiss.IndexFlatL2(dims)
+    rag.index.add(embeddings)
+    rag.documents = all_chunks
+
+    print("[BUILD] Índice construido con", rag.index.ntotal, "vectores")
+    rag.save_index(backend.config.RAG_INDEX_PATH)
+    print("[SAVE] Índice guardado en", backend.config.RAG_INDEX_PATH)
 
     return rag
+
+
+backend.config

@@ -11,12 +11,12 @@ import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-import config
-from app.routes import router as app_router
-from api.routes import router as api_router
-from api.routes import set_rag_engine
-from utils.logging import setup_logging
-from services.rag import LocalRAG, load_documents, chunk_text
+from backend import config
+from backend.app.routes import router as app_router
+from backend.api.routes import router as api_router
+from backend.api.routes import set_rag_engine
+from backend.utils.logging import setup_logging
+from backend.services.rag import LocalRAG, load_documents, chunk_text
 from db.session import engine
 from db.models import Base
 
