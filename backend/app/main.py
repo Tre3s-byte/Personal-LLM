@@ -3,6 +3,7 @@
 This module wires the API routers, logging configuration, database table
 creation, and asynchronous RAG ingestion lifecycle.
 """
+
 import os
 import logging
 import asyncio
@@ -39,8 +40,7 @@ app.include_router(app_router)
 app.include_router(api_router)
 
 # Initialize your RAG engine
-rag = LocalRAG()
-rag_store: LocalRAG | None = None
+rag_store: LocalRAG | None = None  # just declare, no instantiation
 
 # --- Async background ingestion ---
 
@@ -72,12 +72,9 @@ async def async_ingest_and_index():
 
 # Startup event must come after app is defined
 @app.on_event("startup")
-def create_tables():
+async def startup_event():
     """Create SQLAlchemy tables at startup if they do not exist yet."""
     Base.metadata.create_all(bind=engine)
-
-
-async def startup_event():
     """Kick off background ingestion task once the server is running."""
     # Schedule background ingestion; server will start immediately
     asyncio.create_task(async_ingest_and_index())

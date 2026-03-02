@@ -15,14 +15,21 @@ from .embeddings import get_embedding_service
 
 class LocalRAG:
     def __init__(self):
-        self.embedder = get_embedding_service()
+        self.embedder = None
         self.index = None
         self.documents: List[str] = []
+
+    def _get_embedder(self):
+        if self.embedder is None:
+            self.embedder = get_embedding_service()
+        return self.embedder
 
     def build_index(self, texts: List[str]):
         if not texts:
             raise ValueError("No documents provided to build index")
-        embeddings = self.embedder.embed_text(texts)
+
+        embedder = self._get_embedder()
+        embeddings = embedder.embed_texts(texts)
         embeddings = np.array(embeddings, dtype="float32")
         faiss.normalize_L2(embeddings)
 
@@ -59,8 +66,9 @@ class LocalRAG:
     def search(self, query: str, top_k: int = 4) -> List[str]:
         if self.index is None:
             raise RuntimeError("Index not loaded")
+        embedder = self._get_embedder()
 
-        query_vec = self.embedder.embed_text(query)
+        query_vec = embedder.embed_texts(query)
 
         if not isinstance(query_vec, np.ndarray):
             query_vec = np.array(query_vec)
