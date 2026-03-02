@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import config
 from app.routes import router as app_router
 from api.routes import router as api_router
+from api.routes import set_rag_engine
 from utils.logging import setup_logging
 from services.rag import LocalRAG, load_documents, chunk_text
 from db.session import engine
@@ -41,6 +42,7 @@ app.include_router(api_router)
 
 # Initialize your RAG engine
 rag_store: LocalRAG | None = None  # just declare, no instantiation
+rag_init_task: asyncio.Task | None = None
 
 # --- Async background ingestion ---
 
@@ -69,6 +71,8 @@ async def async_ingest_and_index():
         await asyncio.to_thread(rag_store.save_index, config.RAG_INDEX_PATH)
         logger.info("RAG ingestion and index build complete")
 
+    set_rag_engine(rag_store)
+
 
 # Startup event must come after app is defined
 @app.on_event("startup")
@@ -77,7 +81,9 @@ async def startup_event():
     Base.metadata.create_all(bind=engine)
     """Kick off background ingestion task once the server is running."""
     # Schedule background ingestion; server will start immediately
-    asyncio.create_task(async_ingest_and_index())
+    global rag_init_task
+    if rag_init_task is None or rag_init_task.done():
+        rag_init_task = asyncio.create_task(async_ingest_and_index())
     logger.info("Server started, RAG ingestion running in background")
 
 
@@ -88,7 +94,7 @@ async def query_endpoint(q: str):
     if not rag_store:
         return {"error": "RAG store not ready yet"}
     # Run retrieval in thread
-    response = await asyncio.to_thread(rag_store.query, q)
+    response = await asyncio.to_thread(rag_store.search, q)
     return {"query": q, "response": response}
 
 
