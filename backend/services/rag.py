@@ -56,7 +56,7 @@ class LocalRAG:
 
     def search(self, query: str, top_k: int = 4) -> List[str]:
         if self.index is None:
-            raise []
+            raise RuntimeError("Index not loaded")
 
         query_vec = self.embedder.embed_text(query)
 

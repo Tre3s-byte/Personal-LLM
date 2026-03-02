@@ -11,6 +11,9 @@ from app.routes import router as app_router
 from api.routes import router as api_router
 from utils.logging import setup_logging
 from services.rag import LocalRAG, load_documents, chunk_text
+from db.session import engine
+from db.models import Base
+
 
 # Initialize FastAPI app first
 app = FastAPI(title="Local LLM API")
@@ -64,6 +67,10 @@ async def async_ingest_and_index():
 
 # Startup event must come after app is defined
 @app.on_event("startup")
+def create_tables():
+    Base.metadata.create_all(bind=engine)
+
+
 async def startup_event():
     # Schedule background ingestion; server will start immediately
     asyncio.create_task(async_ingest_and_index())
