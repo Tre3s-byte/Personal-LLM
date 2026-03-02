@@ -1,3 +1,5 @@
+"""Legacy orchestration wrapper for routed inference with telemetry logging."""
+
 import uuid
 import time
 

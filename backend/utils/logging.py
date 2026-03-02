@@ -1,3 +1,5 @@
+"""Structured JSON logging configuration and inference telemetry emitters."""
+
 import json
 import logging
 import logging.config

@@ -1,3 +1,5 @@
+"""SQLAlchemy metadata models for documents and embedded chunks."""
+
 from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from session import Base

@@ -1,3 +1,5 @@
+"""Chat persistence helpers for storing local conversation transcripts."""
+
 import os
 import json
 from uuid import uuid4

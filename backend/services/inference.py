@@ -1,3 +1,5 @@
+"""Inference orchestration utilities with optional chunk-aware strategies."""
+
 from typing import Any, Dict, List
 
 from config import MODEL_CONFIG

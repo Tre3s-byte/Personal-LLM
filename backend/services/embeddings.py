@@ -1,3 +1,5 @@
+"""Sentence-transformer embedding service abstraction used by RAG."""
+
 from sentence_transformers import SentenceTransformer
 import numpy as np
 

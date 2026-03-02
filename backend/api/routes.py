@@ -1,3 +1,9 @@
+"""HTTP endpoints for chat inference and request telemetry.
+
+The /chat endpoint validates payloads, routes requests to the most suitable
+model/strategy, optionally injects RAG context, and records structured logs.
+"""
+
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from services.inference import run_routed_inference
@@ -24,6 +30,7 @@ rag_engine: LocalRAG = build_rag_index()
 
 @router.post("/chat")
 async def chat(request: Request):
+    """Handle chat requests end-to-end through routing + inference services."""
     logger.info("Received /chat request")
 
     # Read request body
