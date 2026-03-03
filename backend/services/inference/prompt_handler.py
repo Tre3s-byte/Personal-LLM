@@ -1,6 +1,8 @@
 # backend/services/inference/prompt_handler.py
 from typing import Any, Dict, List
-from backend.services.chunker import chunk_code, chunk_log_text, trim_chat_history
+from backend.services.chunker.code_chunker import chunk_code
+from backend.services.chunker.logs_chunker import chunk_log_text
+from backend.services.chunker.chat_chunker import trim_chat_history
 from backend.services.inference.llama import run_inference, _generate_with_model
 from backend.config import MODEL_CONFIG
 

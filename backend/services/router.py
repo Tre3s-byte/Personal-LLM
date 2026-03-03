@@ -2,7 +2,7 @@
 
 import re
 from backend.config import ROUTER_LIGHT_THRESHOLD, ROUTER_HEAVY_THRESHOLD
-from backend.services.chunker import estimate_tokens
+from backend.services.chunker.base import estimate_tokens
 from .chat_manager import extract_last_user_message
 
 # ---- Precompiled patterns ----
@@ -55,6 +55,10 @@ RAG_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+MODEL_DIRECTIVE_PATTERN = re.compile(
+    r"use the (small|medium|large) model", re.IGNORECASE
+)
+
 
 def extract_target_folder(text: str) -> str:
     match = FOLDER_PATTERN.search(text)
@@ -89,6 +93,7 @@ def route_request(messages):
     text = extract_last_user_message(messages)
     token_estimate = estimate_tokens(text)
 
+    directive_match = MODEL_DIRECTIVE_PATTERN.search(text)
     is_code_structure = CODE_BLOCK_PATTERN.search(text) is not None
     is_code_intent = CODE_INTENT_PATTERN.search(text) is not None
     is_grammar = GRAMMAR_PATTERN.search(text) is not None
@@ -118,6 +123,13 @@ def route_request(messages):
             "chunk_strategy": None,
             "is_recommended": True,
             "target_folder": target_folder,
+        }
+    if directive_match:
+        return {
+            "task_type": "general_chat",
+            "target_model": directive_match.group(1).lower(),
+            "chunk_strategy": None,
+            "is_recommended": is_recommended,
         }
 
     if RAG_PATTERN.search(text):

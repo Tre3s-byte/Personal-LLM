@@ -17,6 +17,7 @@ def load_model(model_path, n_gpu_layers, n_ctx):
         n_batch=512,
         n_threads=max(1, os.cpu_count() - 2),
         verbose=False,
+        backend="cuda",
     )
     print(f"[LOAD] Modelo cargado desde: {model_path}")
     return _llm
