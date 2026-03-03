@@ -7,6 +7,10 @@ from .chat_manager import extract_last_user_message
 
 # ---- Precompiled patterns ----
 
+FOLDER_PATTERN = re.compile(
+    r"\b(?:in|into|to|under|inside|store in|save in)\s+([a-zA-Z0-9 _-]+)",
+    re.IGNORECASE,
+)
 YOUTUBE_URL_PATTERN = re.compile(
     r"(https?://)?(www\.)?(youtube\.com|youtu\.be)/\S+",
     re.IGNORECASE,
@@ -52,6 +56,27 @@ RAG_PATTERN = re.compile(
 )
 
 
+def extract_target_folder(text: str) -> str:
+    match = FOLDER_PATTERN.search(text)
+    if not match:
+        return "Liked Songs"
+
+    folder = match.group(1).strip()
+
+    # Clean trailing words that are likely part of sentence structure
+    folder = re.split(
+        r"\b(please|thanks|now|this|that)\b", folder, flags=re.IGNORECASE
+    )[0]
+
+    # Normalize spacing
+    folder = folder.strip()
+
+    if not folder:
+        return "Liked Songs"
+
+    return folder.title()
+
+
 def has_code_symbols(text: str) -> bool:
     if len(text) < 200:
         return False
@@ -86,11 +111,13 @@ def route_request(messages):
     is_recommended = intention_count == 1
 
     if is_youtube_url and is_youtube_intent:
+        target_folder = extract_target_folder(text)
         return {
             "task_type": "youtube_backup",
             "target_model": None,
             "chunk_strategy": None,
             "is_recommended": True,
+            "target_folder": target_folder,
         }
 
     if RAG_PATTERN.search(text):

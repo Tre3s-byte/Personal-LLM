@@ -121,7 +121,7 @@ async def chat(request: Request):
                 + context_block,
             }
         ] + messages
-    print(rag_engine.index.d)
+
     request_id = str(uuid.uuid4())
     prompt_text = "\n".join([m["content"] for m in messages])
 
