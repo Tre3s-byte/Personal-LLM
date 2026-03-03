@@ -11,11 +11,12 @@ from db.session import Base
 from backend import config
 from fastapi import FastAPI
 from db.session import engine
-from backend.services.rag import LocalRAG
+from backend.services.rag.vector_manager import LocalRAG
 from backend.utils.logging import setup_logging
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.routes import router as app_router
-from backend.api.routes import router as api_router, set_rag_engine
+from backend.api.handler.chat import set_rag_engine
+from backend.api.routes import api_router
 
 
 # Initialize FastAPI app first
