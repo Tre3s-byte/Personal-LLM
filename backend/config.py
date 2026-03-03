@@ -50,17 +50,21 @@ SAFE_CTX_LARGE = 4096
 
 # --- Generation parameters ---
 
-TEMPERATURE_SMALL = 0
-TEMPERATURE_MEDIUM = 0
+TEMPERATURE_SMALL = 0.6
+TEMPERATURE_MEDIUM = 0.2
 TEMPERATURE_LARGE = 0
 
-MAX_TOKENS_SMALL = 500
+MAX_TOKENS_SMALL = 180
 MAX_TOKENS_MEDIUM = 900
 MAX_TOKENS_LARGE = 2000
 
-TOP_P_SMALL = 0.5
+TOP_P_SMALL = 0.9
 TOP_P_MEDIUM = 0.5
 TOP_P_LARGE = 0.5
+
+PENALTY_SMALL = 1.2
+PENALTY_MEDIUM = 1.08
+PENALTY_LARGE = 1.05
 
 # --- Prompt input budgeting ---
 
@@ -78,6 +82,7 @@ MODEL_CONFIG = {
         "max_tokens": MAX_TOKENS_SMALL,
         "temperature": TEMPERATURE_SMALL,
         "top_p": TOP_P_SMALL,
+        "repeat_penalty": PENALTY_SMALL,
     },
     "medium": {
         "path": MODEL_MEDIUM_PATH,
@@ -86,6 +91,7 @@ MODEL_CONFIG = {
         "max_tokens": MAX_TOKENS_MEDIUM,
         "temperature": TEMPERATURE_MEDIUM,
         "top_p": TOP_P_MEDIUM,
+        "repeat_penalty": PENALTY_MEDIUM,
     },
     "large": {
         "path": MODEL_LARGE_PATH,
@@ -94,6 +100,7 @@ MODEL_CONFIG = {
         "max_tokens": MAX_TOKENS_LARGE,
         "temperature": TEMPERATURE_LARGE,
         "top_p": TOP_P_LARGE,
+        "repeat_penalty": PENALTY_LARGE,
     },
 }
 

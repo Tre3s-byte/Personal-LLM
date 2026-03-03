@@ -31,6 +31,7 @@ def _generate_with_model(
             max_tokens=max_tokens if max_tokens is not None else cfg["max_tokens"],
             temperature=cfg["temperature"],
             top_p=cfg["top_p"],
+            repeat_penalty=cfg.get("repeat_penalty", 1.1),
         )
         usage = output.get("usage") or {}
         prompt_tokens = usage.get("prompt_tokens") or 0
