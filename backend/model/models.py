@@ -13,7 +13,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from .session import Base
+from db.session import Base
 
 
 class Document(Base):
@@ -63,15 +63,10 @@ class Preferences(Base):
     __tablename__ = "personal_preferences"
 
     id = Column(Integer, primary_key=True, index=True)
-
     type = Column(String, index=True, nullable=False)
     content = Column(Text, nullable=False)
-
     embedding = Column(LargeBinary, nullable=True)
-
     importance_score = Column(Float, default=0.0)
-
     created_at = Column(DateTime, server_default=func.now())
     last_access = Column(DateTime, onupdate=func.now())
-
     access_count = Column(Integer, default=0)

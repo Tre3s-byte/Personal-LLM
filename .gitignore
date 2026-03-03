@@ -60,3 +60,4 @@ vector_store/
 cache/
 .cache/
 db/metadata.sqlite-journal
+tree.txt

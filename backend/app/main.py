@@ -7,7 +7,7 @@ creation, and asynchronous RAG ingestion lifecycle.
 import logging
 import asyncio
 
-from db.models import Base
+from db.session import Base
 from backend import config
 from fastapi import FastAPI
 from db.session import engine

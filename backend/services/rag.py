@@ -15,7 +15,7 @@ from PyPDF2 import PdfReader
 import backend.config as config
 from db.session import SessionLocal
 from sqlalchemy.orm import Session
-from db.models import Document, Chunk
+from backend.model.models import Document, Chunk
 from .vector_store import FaissVectorStore
 from .embeddings import get_embedding_service
 
