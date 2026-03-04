@@ -1,5 +1,5 @@
-from backend.db.session import SessionLocal
-from backend.db.queries.preferences import create_or_update_preference
+from db.session import SessionLocal
+from db.queries.preferences import create_or_update_preference
 from backend.services.embeddings import get_embedding_service
 
 

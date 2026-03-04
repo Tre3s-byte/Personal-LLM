@@ -1,130 +1,73 @@
-"""Legacy orchestration wrapper for routed inference with telemetry logging."""
+"""Inference orchestration wrapper with centralized structured logging."""
 
-import uuid
+from __future__ import annotations
+
 import time
+import uuid
 
-from services.router import route_request
-from services.inference import run_routed_inference
-from utils.logging import setup_logging
+from backend.services.inference import run_routed_inference
+from backend.services.router import route_request
+from backend.utils.logging import (
+    log_event,
+    log_inference_request,
+    log_inference_response,
+    log_inference_telemetry,
+    setup_logging,
+)
 
-app_logger, inference_logger, telemetry_logger = setup_logging()
+app_logger, _, telemetry_logger = setup_logging()
 
 
-def handle_request(messages):
+def handle_request(messages: list[dict[str, str]]) -> str:
     request_id = str(uuid.uuid4())
-    start_time = time.perf_counter()
+    started = time.perf_counter()
+    prompt = messages[-1].get("content", "") if messages else ""
 
-    prompt = messages[-1]["content"]
-
-    # ---- REQUEST RECEIVED ----
-    inference_logger.info(
-        "Request received",
-        extra={"extra_data": {"request_id": request_id, "event": "request_received"}},
+    log_inference_request(
+        request_id=request_id,
+        prompt=prompt,
+        model_name="auto",
+        strategy="router",
     )
+    log_event(app_logger, "incoming_request", request_id=request_id, user_context=messages)
 
-    app_logger.info(
-        "Prompt captured",
-        extra={
-            "extra_data": {
-                "request_id": request_id,
-                "prompt": prompt,
-                "messages": messages,
-            }
-        },
-    )
-
-    # ---- ROUTING ----
     route_info = route_request(messages)
-
     selected_model = route_info.get("selected_model") or route_info.get("target_model")
-    fallback_model = route_info.get("fallback_model")
-    models_loaded_count = route_info.get("models_loaded", 1)
-    chunk_strategy = route_info.get("chunk_strategy")
-
-    app_logger.info(
-        "Routing completed",
-        extra={
-            "extra_data": {
-                "request_id": request_id,
-                "selected_model": selected_model,
-                "fallback_model": fallback_model,
-                "models_loaded": models_loaded_count,
-                "chunk_strategy": chunk_strategy,
-                "task_type": route_info.get("task_type"),
-            }
-        },
+    log_event(
+        app_logger,
+        "routing_completed",
+        request_id=request_id,
+        selected_model=selected_model,
+        fallback_model=route_info.get("fallback_model"),
+        chunk_strategy=route_info.get("chunk_strategy"),
+        task_type=route_info.get("task_type"),
     )
 
-    # ---- INFERENCE ----
     response = run_routed_inference(
         model_name=selected_model,
         messages=messages,
         routing=route_info,
     )
 
-    inference_process_time = time.perf_counter() - start_time
+    latency = time.perf_counter() - started
+    usage = response.get("usage", {}) if isinstance(response, dict) else {}
+    response_text = response.get("text", "") if isinstance(response, dict) else str(response)
 
-    if isinstance(response, dict):
-        usage = response.get("usage", {})
-        response_text = response.get("text", "")
-        models_used = response.get("models_used", [selected_model])
-        chunk_info = response.get("chunk_info")
-    else:
-        usage = {}
-        response_text = str(response)
-        models_used = [selected_model]
-        chunk_info = None
-
-    prompt_tokens = int(usage.get("prompt_tokens") or 0)
-    completion_tokens = int(usage.get("completion_tokens") or 0)
-    total_tokens = int(usage.get("total_tokens") or 0)
-    tokens_per_second = (
-        total_tokens / inference_process_time if inference_process_time > 0 else 0
+    log_inference_response(
+        request_id=request_id,
+        response_text=response_text,
+        model_name=str(selected_model),
+        inference_process_time=latency,
     )
-
-    # ---- RESPONSE GENERATED ----
-    inference_logger.info(
-        "Response generated",
-        extra={"extra_data": {"request_id": request_id, "event": "response_generated"}},
+    log_inference_telemetry(
+        request_id=request_id,
+        model_used=str(selected_model),
+        task_type=route_info.get("task_type"),
+        inference_process_time=latency,
+        prompt_tokens=int(usage.get("prompt_tokens") or 0),
+        completion_tokens=int(usage.get("completion_tokens") or 0),
+        total_tokens=int(usage.get("total_tokens") or 0),
     )
-
-    telemetry_logger.info(
-        "Inference telemetry",
-        extra={
-            "extra_data": {
-                "request_id": request_id,
-                "model_used": str(selected_model),
-                "models_involved": models_used,
-                "task_type": route_info.get("task_type"),
-                "inference_process_time": inference_process_time,
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "total_tokens": total_tokens,
-                "tokens_per_second": tokens_per_second,
-                "chunk_info": chunk_info,
-            }
-        },
-    )
-
-    # ---- FULL TRACE ----
-    app_logger.info(
-        "Inference completed",
-        extra={
-            "extra_data": {
-                "request_id": request_id,
-                "prompt": prompt,
-                "response": response_text,
-                "model_used": str(selected_model),
-                "models_involved": models_used,
-                "chunk_strategy": chunk_strategy,
-                "chunk_info": chunk_info,
-                "inference_process_time": inference_process_time,
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "total_tokens": total_tokens,
-                "tokens_per_second": tokens_per_second,
-            }
-        },
-    )
+    log_event(telemetry_logger, "request_complete", request_id=request_id, latency_seconds=latency)
 
     return response_text

@@ -1,55 +1,38 @@
 from pathlib import Path
 import os
+
 # ============================================================
 # PATHS
 # ============================================================
-
-# --- Base directories ---
-
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-DATA_DIR.mkdir(exist_ok=True)  # Ensure runtime data directory exists
-DOWNLOAD_FOLDER = os.path.join(os.environ["USERPROFILE"], "Music")
-# --- RAG scanning paths ---
+DATA_DIR.mkdir(exist_ok=True)
+DOWNLOAD_FOLDER = os.path.join(os.environ.get("USERPROFILE", str(BASE_DIR)), "Music")
 
 RAG_PATHS = [Path("C:/Users/maxim")]
-# RAG_PATHS = [Path("C:/Users/maxim/RAG_TEST")]
-
-# --- Vector index storage ---
-
 RAG_INDEX_PATH = str(DATA_DIR / "faiss_index.index")
+RAG_DOCS_PATH = str(DATA_DIR / "faiss_index.docs.json")
+
 INDEX_PATH = "vector_store/index.faiss"
 EMBEDDINGS_PATH = "vector_store/embeddings.pkl"
-
-# --- Database paths ---
 
 SQL_BASE_DIR = Path(__file__).resolve().parents[1]
 DB_PATH = SQL_BASE_DIR / "db" / "metadata.sqlite"
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-# --- Model file paths ---
-
 MODEL_SMALL_PATH = "models/JOSIE-4B-Instruct.Q4_K_M.gguf"
 MODEL_MEDIUM_PATH = "models/JOSIE-4B-Instruct.Q4_K_M.gguf"
 MODEL_LARGE_PATH = "models/qwen2.5-coder-7b-instruct-q4_k_m-00001-of-00002.gguf"
 
-
 # ============================================================
 # SETTINGS
 # ============================================================
-
-# --- Hardware configuration ---
-
 USE_GPU = True
-N_GPU_LAYERS = -1  # -1 means offload all possible layers to GPU
-
-# --- Context limits ---
+N_GPU_LAYERS = -1
 
 SAFE_CTX_SMALL = 4096
 SAFE_CTX_MEDIUM = 4096
 SAFE_CTX_LARGE = 4096
-
-# --- Generation parameters ---
 
 TEMPERATURE_SMALL = 0.6
 TEMPERATURE_MEDIUM = 0.2
@@ -67,13 +50,9 @@ PENALTY_SMALL = 1.2
 PENALTY_MEDIUM = 1.08
 PENALTY_LARGE = 1.05
 
-# --- Prompt input budgeting ---
-
 SMALL_INPUT_BUDGET = SAFE_CTX_SMALL - MAX_TOKENS_SMALL - 300
 MEDIUM_INPUT_BUDGET = SAFE_CTX_MEDIUM - MAX_TOKENS_MEDIUM - 400
 LARGE_INPUT_BUDGET = SAFE_CTX_LARGE - MAX_TOKENS_LARGE - 400
-
-# --- Model configuration registry ---
 
 MODEL_CONFIG = {
     "small": {
@@ -105,8 +84,12 @@ MODEL_CONFIG = {
     },
 }
 
-MAX_FILE_SIZE_MB = 20
+RAG_CHUNK_SIZE = 1000
+RAG_CHUNK_OVERLAP = 200
+RAG_TOP_K = 4
+RAG_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
+MAX_FILE_SIZE_MB = 20
 SECRET_PATTERNS = [
     r"api[_-]?key",
     r"secret",
@@ -117,12 +100,8 @@ SECRET_PATTERNS = [
     r"BEGIN OPENSSH PRIVATE KEY",
 ]
 
-# --- Router thresholds ---
-
 ROUTER_LIGHT_THRESHOLD = 800
 ROUTER_HEAVY_THRESHOLD = 1500
-
-# --- Directory exclusions for RAG scanning ---
 
 EXCLUDED_DIRS = {
     "venv",

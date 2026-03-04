@@ -1,30 +1,49 @@
+"""FAISS storage abstraction used by hybrid RAG."""
+
+from __future__ import annotations
+
 import logging
-import faiss
-import numpy as np
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+import faiss
+import numpy as np
+
+logger = logging.getLogger("rag")
 
 
 class FaissVectorStore:
     def __init__(self, embedding_dim: int, index_path: str):
         self.embedding_dim = embedding_dim
         self.index_path = Path(index_path)
+        self.index = self._load_or_create_index()
+
+    def _load_or_create_index(self):
         if self.index_path.exists():
-            self.index = faiss.read_index(str(self.index_path))
-            logger.info(f"FAISS index loaded from {self.index_path}")
-        else:
-            base = faiss.IndexFlatL2(embedding_dim)
-            self.index = faiss.IndexIDMap(base)
-            logger.info(f"FAISS index created new with dim={embedding_dim}")
+            logger.info("faiss_index_loaded", extra={"extra_data": {"path": str(self.index_path)}})
+            return faiss.read_index(str(self.index_path))
+        base = faiss.IndexFlatIP(self.embedding_dim)
+        logger.info("faiss_index_created", extra={"extra_data": {"dim": self.embedding_dim}})
+        return faiss.IndexIDMap(base)
 
-    def add(self, embeddings: np.ndarray, ids: np.ndarray):
-        embeddings = embeddings.astype("float32")
-        faiss.normalize_L2(embeddings)
-        self.index.add_with_ids(embeddings, ids.astype("int64"))
-        logger.info(f"Added {len(embeddings)} embeddings to FAISS index")
+    def add(self, embeddings: np.ndarray, ids: np.ndarray) -> None:
+        if embeddings.size == 0:
+            return
+        arr = embeddings.astype("float32")
+        faiss.normalize_L2(arr)
+        self.index.add_with_ids(arr, ids.astype("int64"))
 
-    def save(self):
+    def search(self, embeddings: np.ndarray, top_k: int) -> list[int]:
+        if self.index.ntotal == 0:
+            return []
+        arr = embeddings.astype("float32")
+        faiss.normalize_L2(arr)
+        _, ids = self.index.search(arr, top_k)
+        return [int(v) for v in ids[0].tolist() if int(v) != -1]
+
+    def remove(self, ids: np.ndarray) -> None:
+        if ids.size:
+            self.index.remove_ids(ids.astype("int64"))
+
+    def save(self) -> None:
         self.index_path.parent.mkdir(parents=True, exist_ok=True)
         faiss.write_index(self.index, str(self.index_path))
-        logger.info(f"FAISS index saved at {self.index_path}")

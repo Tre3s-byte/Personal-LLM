@@ -32,7 +32,7 @@ app.add_middleware(
 
 # Setup logging
 setup_logging()
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
 
 # Include routers
 app.include_router(app_router)

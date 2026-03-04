@@ -1,26 +1,16 @@
+from __future__ import annotations
+
 from sqlalchemy.orm import Session
-from backend.model.models import Document, Chunk
+
+from backend.model.models import Document
 
 
-def get_document_by_path(session: Session, path: str):
+def get_document_by_path(session: Session, path: str) -> Document | None:
     return session.query(Document).filter(Document.path == path).first()
 
 
-def create_document(
-    session: Session, path: str, checksum=None, mtime=None, namespace=None
-):
+def create_document(session: Session, path: str, checksum: str | None = None, mtime: str | None = None, namespace: str | None = None) -> Document:
     doc = Document(path=path, checksum=checksum, mtime=mtime, namespace=namespace)
     session.add(doc)
-    session.commit()
-    session.refresh(doc)
+    session.flush()
     return doc
-
-
-def add_chunk(session: Session, document_id: int, chunk_index: int, text: str):
-    from backend.model.models import Chunk
-
-    chunk = Chunk(document_id=document_id, chunk_index=chunk_index, text=text)
-    session.add(chunk)
-    session.commit()
-    session.refresh(chunk)
-    return chunk
