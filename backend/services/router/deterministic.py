@@ -41,16 +41,30 @@ def route_deterministic(text: str) -> Optional[Dict[str, Any]]:
     directive_match = MODEL_DIRECTIVE_PATTERN.search(text)
 
     if directive_match:
-        target_model = directive_match.group(1).lower()
+        target_model = directive_match.group("size").lower()
     else:
-        target_model = "small"  # default fallback
-    if not directive_match:
-        app_logger.info("No model directive found; using default 'medium'")
+        target_model = "small"
+        app_logger.info("No model directive found; using default 'small'")
+
     if has_url and has_action and not is_hypothetical:
+        folder_name = extract_target_folder(text)
+        app_logger.info(
+            "Deterministic route matched youtube backup",
+            extra={
+                "extra_data": {
+                    "event": "route_deterministic_match",
+                    "task_type": "youtube_backup",
+                    "target_model": target_model,
+                    "target_folder": folder_name,
+                }
+            },
+        )
         return {
-            "task_type": "general_chat",
-            "target_model": target_model,  # safe fallback used here
+            "task_type": "youtube_backup",
+            "target_model": target_model,
+            "target_folder": folder_name,
             "chunk_strategy": None,
+            "requires_rag": False,
             "is_recommended": True,
         }
     return None

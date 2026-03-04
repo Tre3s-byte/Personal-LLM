@@ -1,7 +1,7 @@
 import time
 import uuid
 import logging
-from fastapi import Request, HTTPException
+from fastapi import Request
 from fastapi.concurrency import run_in_threadpool
 from backend.services.inference.prompt_handler import run_routed_inference
 from backend.services.router import route_request
@@ -34,11 +34,37 @@ async def handle_chat_request(request: Request):
             )
 
         request_id = str(uuid.uuid4())
-        if routing.get("requires_rag"):
-            if rag_engine is None:
-                raise HTTPException(status_code=503, detail="RAG store not ready yet")
+        wants_rag = bool(routing.get("requires_rag"))
+        rag_ready = rag_engine is not None
+
+        logger.info(
+            "RAG usage decision",
+            extra={
+                "extra_data": {
+                    "event": "rag_usage_decision",
+                    "request_id": request_id,
+                    "requires_rag": wants_rag,
+                    "rag_ready": rag_ready,
+                    "task_type": routing.get("task_type"),
+                    "router_source": routing.get("router_source"),
+                }
+            },
+        )
+
+        if wants_rag and rag_ready:
             messages = rag_context.inject_rag_context(
                 rag_engine, messages, request_id=request_id
+            )
+            logger.info("RAG context injected", extra={"extra_data": {"event": "rag_context_injected", "request_id": request_id}})
+        elif wants_rag and not rag_ready:
+            logger.warning(
+                "RAG requested but engine is not ready; continuing without RAG context",
+                extra={
+                    "extra_data": {
+                        "event": "rag_context_skipped",
+                        "request_id": request_id,
+                    }
+                },
             )
 
         prompt_text = "\n".join([m["content"] for m in messages])
