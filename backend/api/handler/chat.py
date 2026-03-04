@@ -20,45 +20,49 @@ def set_rag_engine(engine: LocalRAG) -> None:
 
 async def handle_chat_request(request: Request):
     logger.info("Received /chat request")
+    try:
+        body = await validation.parse_request_body(request)
+        messages = validation.validate_messages(body)
 
-    body = await validation.parse_request_body(request)
-    messages = validation.validate_messages(body)
+        routing = route_request(messages)
+        model_name = routing.get("target_model")
 
-    routing = route_request(messages)
-    model_name = routing.get("target_model")
+        if routing.get("task_type") == "youtube_backup":
+            return await youtube_task.handle_youtube_backup(
+                messages[-1]["content"],
+                target_folder=routing.get("target_folder", "Liked Songs"),
+            )
 
-    # YouTube task
-    if routing.get("task_type") == "youtube_backup":
-        return await youtube_task.handle_youtube_backup(
-            messages[-1]["content"],
-            target_folder=routing.get("target_folder", "Liked Songs"),
+        request_id = str(uuid.uuid4())
+        if routing.get("requires_rag"):
+            if rag_engine is None:
+                raise HTTPException(status_code=503, detail="RAG store not ready yet")
+            messages = rag_context.inject_rag_context(
+                rag_engine, messages, request_id=request_id
+            )
+
+        prompt_text = "\n".join([m["content"] for m in messages])
+
+        inference_logger.log_request(
+            request_id, prompt_text, model_name, routing.get("chunk_strategy")
         )
 
-    # RAG injection
-    # Logging and inference
-    request_id = str(uuid.uuid4())
-    if routing.get("requires_rag"):
-        if rag_engine is None:
-            raise HTTPException(status_code=503, detail="RAG store not ready yet")
-        messages = rag_context.inject_rag_context(
-            rag_engine, messages, request_id=request_id
+        start = time.perf_counter()
+        response = await run_in_threadpool(
+            run_routed_inference,
+            model_name=model_name,
+            messages=messages,
+            routing=routing,
+        )
+        latency = time.perf_counter() - start
+
+        response_text, usage = inference_logger.process_response(
+            response, request_id, model_name, routing.get("task_type"), latency
         )
 
-    # Logging and inference
-    prompt_text = "\n".join([m["content"] for m in messages])
-    inference_logger.log_request(
-        request_id, prompt_text, model_name, routing.get("chunk_strategy")
-    )
+        logger.info("Generated response successfully")
+        return {"response": response_text}
 
-    start = time.perf_counter()
-    response = await run_in_threadpool(
-        run_routed_inference, model_name=model_name, messages=messages, routing=routing
-    )
-    latency = time.perf_counter() - start
-
-    response_text, usage = inference_logger.process_response(
-        response, request_id, model_name, routing.get("task_type"), latency
-    )
-
-    logger.info("Generated response successfully")
-    return {"response": response_text}
+    except Exception:
+        logger.exception("Error handling /chat request")
+        raise

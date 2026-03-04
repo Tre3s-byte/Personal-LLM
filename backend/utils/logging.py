@@ -29,7 +29,13 @@ class JsonFormatter(logging.Formatter):
         if hasattr(record, "extra_data"):
             log_record.update(record.extra_data)
 
-        # If response exists, preserve formatting cleanly
+        if record.exc_info:
+            import traceback
+
+            log_record["exception"] = "".join(
+                traceback.format_exception(*record.exc_info)
+            )
+
         if "response" in log_record and isinstance(log_record["response"], str):
             log_record["response"] = log_record["response"].strip()
 
