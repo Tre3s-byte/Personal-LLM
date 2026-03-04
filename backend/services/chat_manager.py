@@ -24,19 +24,16 @@ def list_chats():
 
 def load_chat(chat_id):
     path = os.path.join(CHATS_DIR, f"{chat_id}.json")
-
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
             conversations[chat_id] = json.load(f)
     else:
         conversations[chat_id] = []
-
     return conversations[chat_id]
 
 
 def save_chat(chat_id):
     path = os.path.join(CHATS_DIR, f"{chat_id}.json")
-
     with open(path, "w", encoding="utf-8") as f:
         json.dump(conversations[chat_id], f, indent=2, ensure_ascii=False)
 

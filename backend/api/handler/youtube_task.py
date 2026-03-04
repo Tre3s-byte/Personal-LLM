@@ -1,85 +1,102 @@
-import re
-import uuid
-import time
-from datetime import datetime, timezone
-from fastapi import HTTPException
-from fastapi.concurrency import run_in_threadpool
-from backend.api.handler import rag_context
-from backend.services.inference.prompt_handler import run_routed_inference
-from backend.utils.logging import (
-    log_tool_execution_start,
-    log_tool_execution_result,
-    log_inference_telemetry,
-)
+import os
+import traceback
+import logging
+from yt_dlp import YoutubeDL
+from backend.config import DOWNLOAD_FOLDER
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
-async def handle_youtube_backup(
-    user_text: str, target_folder: str = None, rag_engine=None
-) -> dict:
-    url_match = re.search(r"(https?://\S+)", user_text)
-    if not url_match:
-        raise HTTPException(status_code=400, detail="No valid YouTube URL found")
-    url = url_match.group(1)
-    request_id = str(uuid.uuid4())
-    started_at = datetime.now(timezone.utc).isoformat()
+def build_ydl_opts(target_folder: str):
+    folder_path = os.path.join(DOWNLOAD_FOLDER, target_folder)
+    os.makedirs(folder_path, exist_ok=True)
+    logger.info(f"Preparing download folder: {folder_path}")
 
-    # RAG context injection
-    messages = [{"role": "user", "content": user_text}]
-    if rag_engine:
-        messages = rag_context.inject_rag_context(
-            rag_engine, messages, request_id=request_id
-        )
+    return {
+        "format": "bestaudio/best",
+        "outtmpl": os.path.join(folder_path, "%(title)s.%(ext)s"),
+        "concurrent_downloads": 4,
+        "concurrent_fragment_downloads": 4,
+        "ffmpeg_location": r"C:\ffmpeg-master-latest-win64-gpl-shared\bin",
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "0",
+            }
+        ],
+        "ignoreerrors": True,
+        "continuedl": True,
+        "overwrites": False,
+        "noplaylist": False,
+        "download_archive": os.path.join(folder_path, "downloaded.txt"),
+        "retries": 10,
+        "fragment_retries": 10,
+        "quiet": False,
+        "no_warnings": True,
+    }
 
-    # Build prompt for recommendation
-    prompt_text = "\n".join([m["content"] for m in messages])
-    system_prompt = (
-        "You are a personal assistant. Use the provided RAG context to "
-        "give a recommendation for storing the media, based on past indexed knowledge. "
-        "Do NOT perform any downloads, only recommend a folder."
-    )
-    routed_messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": prompt_text},
-    ]
 
-    # Run small/light model inference
-    start = time.perf_counter()
-    response = await run_in_threadpool(
-        run_routed_inference,
-        model_name="small",
-        messages=routed_messages,
-        routing={"task_type": "youtube_backup"},
-    )
-    latency = time.perf_counter() - start
+def _extract_song_titles(info: dict) -> list[str]:
+    if not info:
+        return []
+    if isinstance(info.get("entries"), list):
+        return [
+            entry.get("title")
+            for entry in info["entries"]
+            if isinstance(entry, dict) and entry.get("title")
+        ]
+    if info.get("title"):
+        return [info["title"]]
+    return []
 
-    recommended_folder = response.get("response", target_folder or "Music")
 
-    # Log recommendation
-    log_tool_execution_start(
-        request_id=request_id,
-        tool_name="youtube_backup",
-        started_at=started_at,
-        input_data={"url": url, "user_text": user_text},
-    )
+def download_url(url: str, folder: str = "Liked Songs"):
+    ydl_opts = build_ydl_opts(folder)
+    folder_path = os.path.join(DOWNLOAD_FOLDER, folder)
+    logger.info(f"Starting download for URL: {url}")
 
-    finished_at = datetime.now(timezone.utc).isoformat()
-    log_tool_execution_result(
-        request_id=request_id,
-        tool_name="youtube_backup",
-        started_at=started_at,
-        finished_at=finished_at,
-        latency_seconds=latency,
-        output_data={"recommended_folder": recommended_folder},
-    )
+    try:
+        with YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            planned_songs = _extract_song_titles(info)
+            logger.info(f"Planned downloads: {len(planned_songs)} items")
+            ydl.download([url])
+            logger.info("Download completed successfully")
+            return {
+                "status": "success",
+                "download_folder": folder_path,
+                "downloaded_songs": planned_songs,
+                "downloaded_count": len(planned_songs),
+                "source_url": url,
+            }
+    except Exception:
+        logger.error("Download error occurred")
+        logger.error(traceback.format_exc())
+        return {
+            "status": "error",
+            "download_folder": folder_path,
+            "downloaded_songs": [],
+            "downloaded_count": 0,
+            "source_url": url,
+        }
 
-    log_inference_telemetry(
-        request_id=request_id,
-        model_used="small",
-        task_type="youtube_backup",
-        inference_process_time=latency,
-        prompt_tokens=0,
-        completion_tokens=0,
-        total_tokens=0,
-    )
 
-    return {"response": f"Recommended folder: {recommended_folder}"}
+def run_youtube_backup(url: str, folder: str = None):
+    try:
+        url = url.replace("music.youtube.com", "www.youtube.com")
+        target_folder = folder if folder else "Liked Songs"
+        logger.info(f"Running YouTube backup. Target folder: {target_folder}")
+        result = download_url(url, folder=target_folder)
+        result["target_folder"] = target_folder
+        return result
+    except Exception:
+        logger.error("Fatal error during YouTube backup")
+        logger.error(traceback.format_exc())
+        return {
+            "status": "error",
+            "target_folder": folder if folder else "Liked Songs",
+            "downloaded_songs": [],
+            "downloaded_count": 0,
+        }

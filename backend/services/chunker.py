@@ -47,7 +47,6 @@ def _split_log_blocks(text: str) -> List[str]:
     ts_pattern = re.compile(
         r"^\s*(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}|\[\d{2}:\d{2}:\d{2}\]|\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})"
     )
-
     blocks: List[str] = []
     current: List[str] = []
 
@@ -57,17 +56,14 @@ def _split_log_blocks(text: str) -> List[str]:
             blocks.append("\n".join(current))
             current = [line]
             continue
-
         if not line.strip() and current:
             blocks.append("\n".join(current))
             current = []
             continue
-
         current.append(line)
 
     if current:
         blocks.append("\n".join(current))
-
     return [b for b in blocks if b.strip()]
 
 
@@ -92,7 +88,6 @@ def chunk_log_text(text: str, max_tokens: int) -> List[str]:
 
     if current:
         chunks.append("\n\n".join(current))
-
     return chunks
 
 
@@ -106,7 +101,6 @@ def _extract_python_top_level_nodes(text: str) -> List[Tuple[int, int]]:
     for node in tree.body:
         if hasattr(node, "lineno") and hasattr(node, "end_lineno"):
             spans.append((node.lineno, node.end_lineno))
-
     return spans
 
 
@@ -127,7 +121,6 @@ def _split_large_block(lines: List[str], max_tokens: int) -> List[str]:
 
     if current:
         chunks.append("\n".join(current))
-
     return chunks
 
 
@@ -138,9 +131,7 @@ def chunk_code(text: str, max_tokens: int) -> List[str]:
         return []
 
     spans = _extract_python_top_level_nodes(text)
-
     if not spans:
-        # Fallback to paragraph/blank-line segmentation for non-python code.
         segments = [segment for segment in text.split("\n\n") if segment.strip()]
     else:
         segments = ["\n".join(lines[start - 1 : end]) for start, end in spans]
@@ -151,16 +142,13 @@ def chunk_code(text: str, max_tokens: int) -> List[str]:
 
     for segment in segments:
         seg_tokens = estimate_tokens(segment)
-
         if seg_tokens > max_tokens:
             if current_segments:
                 chunks.append("\n\n".join(current_segments))
                 current_segments = []
                 current_tokens = 0
-
             chunks.extend(_split_large_block(segment.splitlines(), max_tokens))
             continue
-
         if current_segments and current_tokens + seg_tokens > max_tokens:
             chunks.append("\n\n".join(current_segments))
             current_segments = [segment]
@@ -171,5 +159,4 @@ def chunk_code(text: str, max_tokens: int) -> List[str]:
 
     if current_segments:
         chunks.append("\n\n".join(current_segments))
-
     return chunks

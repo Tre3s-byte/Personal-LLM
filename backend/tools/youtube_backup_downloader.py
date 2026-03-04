@@ -1,40 +1,40 @@
 import os
 import traceback
+import logging
 from yt_dlp import YoutubeDL
 
 from backend.config import DOWNLOAD_FOLDER
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 def build_ydl_opts(target_folder: str):
     folder_path = os.path.join(DOWNLOAD_FOLDER, target_folder)
     os.makedirs(folder_path, exist_ok=True)
 
+    logger.info(f"Preparing download folder: {folder_path}")
+
     return {
         "format": "bestaudio/best",
         "outtmpl": os.path.join(folder_path, "%(title)s.%(ext)s"),
-        # Performance (KEY PART)
-        "concurrent_downloads": 4,  # multiple videos at once
-        "concurrent_fragment_downloads": 4,  # fragments per video
-        # Audio conversion
+        "concurrent_downloads": 4,
+        "concurrent_fragment_downloads": 4,
         "ffmpeg_location": r"C:\ffmpeg-master-latest-win64-gpl-shared\bin",
         "postprocessors": [
             {
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
-                "preferredquality": "0",  # best VBR quality
+                "preferredquality": "0",
             }
         ],
-        # Stability
         "ignoreerrors": True,
         "continuedl": True,
         "overwrites": False,
         "noplaylist": False,
-        # Duplicate protection
         "download_archive": os.path.join(folder_path, "downloaded.txt"),
-        # Network stability
         "retries": 10,
         "fragment_retries": 10,
-        # Console
         "quiet": False,
         "no_warnings": True,
     }
@@ -61,11 +61,19 @@ def download_url(url: str, folder: str = "Liked Songs"):
     ydl_opts = build_ydl_opts(folder)
     folder_path = os.path.join(DOWNLOAD_FOLDER, folder)
 
+    logger.info(f"Starting download for URL: {url}")
+
     with YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(url, download=False)
             planned_songs = _extract_song_titles(info)
+
+            logger.info(f"Planned downloads: {len(planned_songs)} items")
+
             ydl.download([url])
+
+            logger.info("Download completed successfully")
+
             return {
                 "status": "success",
                 "download_folder": folder_path,
@@ -73,9 +81,11 @@ def download_url(url: str, folder: str = "Liked Songs"):
                 "downloaded_count": len(planned_songs),
                 "source_url": url,
             }
-        except Exception:
-            print("Download error:")
-            traceback.print_exc()
+
+        except Exception as e:
+            logger.error("Download error occurred")
+            logger.error(traceback.format_exc())
+
             return {
                 "status": "error",
                 "download_folder": folder_path,
@@ -89,12 +99,18 @@ def run_youtube_backup(url: str, folder: str = None):
     try:
         url = url.replace("music.youtube.com", "www.youtube.com")
         target_folder = folder if folder else "Liked Songs"
+
+        logger.info(f"Running YouTube backup. Target folder: {target_folder}")
+
         result = download_url(url, folder=target_folder)
         result["target_folder"] = target_folder
+
         return result
+
     except Exception:
-        print("FULL ERROR:")
-        traceback.print_exc()
+        logger.error("Fatal error during YouTube backup")
+        logger.error(traceback.format_exc())
+
         return {
             "status": "error",
             "target_folder": folder if folder else "Liked Songs",

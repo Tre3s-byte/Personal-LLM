@@ -12,11 +12,6 @@ LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ---------------------------------------------------------
-# JSON Formatter
-# ---------------------------------------------------------
-
-
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         log_record = {
@@ -39,29 +34,13 @@ class JsonFormatter(logging.Formatter):
         if "response" in log_record and isinstance(log_record["response"], str):
             log_record["response"] = log_record["response"].strip()
 
-        return (
-            "\n"
-            + json.dumps(
-                log_record,
-                ensure_ascii=False,
-                indent=2,
-            )
-            + "\n"
-        )
+        return "\n" + json.dumps(log_record, ensure_ascii=False, indent=2) + "\n"
 
-
-# ---------------------------------------------------------
-# Logging Configuration
-# ---------------------------------------------------------
 
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {
-        "json": {
-            "()": JsonFormatter,
-        },
-    },
+    "formatters": {"json": {"()": JsonFormatter}},
     "handlers": {
         "app_file": {
             "class": "logging.handlers.RotatingFileHandler",
@@ -103,10 +82,7 @@ LOGGING_CONFIG = {
             "propagate": False,
         },
     },
-    "root": {
-        "level": "INFO",
-        "handlers": ["app_file"],
-    },
+    "root": {"level": "INFO", "handlers": ["app_file"]},
 }
 
 
@@ -119,11 +95,6 @@ telemetry_logger = logging.getLogger("telemetry")
 app_logger = logging.getLogger("app")
 
 
-# ---------------------------------------------------------
-# Helper
-# ---------------------------------------------------------
-
-
 def _sanitize(obj: Any):
     if isinstance(obj, dict):
         return {k: _sanitize(v) for k, v in obj.items()}
@@ -132,17 +103,8 @@ def _sanitize(obj: Any):
     return obj
 
 
-# ---------------------------------------------------------
-# Inference Logging
-# ---------------------------------------------------------
-
-
 def log_inference_request(
-    *,
-    request_id: str,
-    prompt: str,
-    model_name: str,
-    strategy: str | None = None,
+    *, request_id: str, prompt: str, model_name: str, strategy: str | None = None
 ):
     inference_logger.info(
         "inference_request_received",
@@ -179,11 +141,6 @@ def log_inference_response(
     )
 
 
-# ---------------------------------------------------------
-# Telemetry Logging
-# ---------------------------------------------------------
-
-
 def log_inference_telemetry(
     *,
     request_id: str,
@@ -199,7 +156,6 @@ def log_inference_telemetry(
         if inference_process_time > 0
         else None
     )
-
     payload = {
         "event": "inference_complete",
         "request_id": request_id,
@@ -211,19 +167,13 @@ def log_inference_telemetry(
         "total_tokens": total_tokens,
         "tokens_per_second": tokens_per_second,
     }
-
     telemetry_logger.info(
-        "telemetry_recorded",
-        extra={"extra_data": _sanitize(payload)},
+        "telemetry_recorded", extra={"extra_data": _sanitize(payload)}
     )
 
 
 def log_tool_execution_start(
-    *,
-    request_id: str,
-    tool_name: str,
-    started_at: str,
-    input_data: dict[str, Any] | None = None,
+    *, request_id: str, tool_name: str, started_at: str, input_data: dict | None = None
 ):
     payload = {
         "event": "tool_execution_started",
@@ -232,10 +182,8 @@ def log_tool_execution_start(
         "started_at": started_at,
         "input": input_data or {},
     }
-
     telemetry_logger.info(
-        "tool_execution_started",
-        extra={"extra_data": _sanitize(payload)},
+        "tool_execution_started", extra={"extra_data": _sanitize(payload)}
     )
 
 
@@ -246,7 +194,7 @@ def log_tool_execution_result(
     started_at: str,
     finished_at: str,
     latency_seconds: float,
-    output_data: dict[str, Any] | None = None,
+    output_data: dict | None = None,
 ):
     payload = {
         "event": "tool_execution_finished",
@@ -257,10 +205,8 @@ def log_tool_execution_result(
         "latency_seconds": latency_seconds,
         "output": output_data or {},
     }
-
     telemetry_logger.info(
-        "tool_execution_finished",
-        extra={"extra_data": _sanitize(payload)},
+        "tool_execution_finished", extra={"extra_data": _sanitize(payload)}
     )
 
 
@@ -281,8 +227,6 @@ def log_rag_index_access(
         "retrieved_ids": retrieved_ids or [],
         "retrieved_count": len(retrieved_ids or []),
     }
-
     telemetry_logger.info(
-        "rag_index_accessed",
-        extra={"extra_data": _sanitize(payload)},
+        "rag_index_accessed", extra={"extra_data": _sanitize(payload)}
     )

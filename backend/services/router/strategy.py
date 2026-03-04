@@ -1,16 +1,19 @@
 """Routing strategy selection from semantic intent and token budget."""
 
 from typing import Any, Dict
-
 from backend.config import ROUTER_HEAVY_THRESHOLD, ROUTER_LIGHT_THRESHOLD
 
 
 def infer_chunk_strategy(text: str, token_estimate: int, intent: str) -> str | None:
     lowered = text.lower()
-
-    if "```" in text or any(marker in lowered for marker in ["def ", "class ", "#include", "import "]):
+    if "```" in text or any(
+        marker in lowered for marker in ["def ", "class ", "#include", "import "]
+    ):
         return "code"
-    if any(marker in lowered for marker in ["error", "exception", "traceback", "stack trace", "log:"]):
+    if any(
+        marker in lowered
+        for marker in ["error", "exception", "traceback", "stack trace", "log:"]
+    ):
         return "log"
     if token_estimate >= ROUTER_LIGHT_THRESHOLD:
         return "chat"
@@ -28,7 +31,9 @@ def select_strategy(
     requires_rag: bool,
     model_override: str | None = None,
 ) -> Dict[str, Any]:
-    chunk_strategy = infer_chunk_strategy(text=text, token_estimate=token_estimate, intent=intent)
+    chunk_strategy = infer_chunk_strategy(
+        text=text, token_estimate=token_estimate, intent=intent
+    )
 
     if intent == "youtube_backup":
         task_type = "youtube_backup"
@@ -52,13 +57,11 @@ def select_strategy(
         task_type = "general_chat"
         default_model = "medium" if not requires_rag else "small"
 
-    # Do not use heavy models unless required by very large structured workloads.
     if chunk_strategy in {"code", "log"} and token_estimate >= ROUTER_HEAVY_THRESHOLD:
         default_model = "large"
 
     target_model = model_override or default_model
 
-    # Explicit fallback requested: no RAG signal -> medium.
     if not requires_rag and model_override is None and intent == "general_chat":
         target_model = "medium"
 

@@ -1,11 +1,12 @@
-"""Low-level model loader for llama.cpp GGUF backends."""
-
-from llama_cpp import Llama
-from llama_cpp import llama_cpp
 import os
 import gc
+import logging
+from llama_cpp import Llama, llama_cpp
 
-# This function loads the model and make it available to generate the answers of every request
+# Setup logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 _llm = None
 
 
@@ -23,10 +24,9 @@ def load_model(model_path, n_gpu_layers, n_ctx):
     effective_gpu_layers = n_gpu_layers if gpu_supported else 0
 
     if n_gpu_layers != 0 and not gpu_supported:
-        print(
-            "[LOAD][WARN] llama.cpp was built without GPU offload support. "
-            "Model will run on CPU. Install backend/requirements.gpu.txt and "
-            "rebuild the venv."
+        logger.warning(
+            "llama.cpp was built without GPU offload support. "
+            "Model will run on CPU. Install backend/requirements.gpu.txt and rebuild the venv."
         )
 
     _llm = Llama(
@@ -37,8 +37,9 @@ def load_model(model_path, n_gpu_layers, n_ctx):
         n_threads=max(1, os.cpu_count() - 2),
         verbose=False,
     )
-    print(
-        f"[LOAD] Modelo cargado desde: {model_path} "
+
+    logger.info(
+        f"Modelo cargado desde: {model_path} "
         f"(n_gpu_layers={effective_gpu_layers}, gpu_supported={gpu_supported})"
     )
     return _llm
@@ -52,9 +53,10 @@ def unload_model(model):
     try:
         del model
         _llm = None
-        print("[UNLOAD] Modelo descargado y referencias eliminadas")
+        logger.info("Modelo descargado y referencias eliminadas")
     except Exception:
         pass
+
     gc.collect()
 
     try:
@@ -62,6 +64,6 @@ def unload_model(model):
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-            print("[UNLOAD] Memoria CUDA liberada")
+            logger.info("Memoria CUDA liberada")
     except Exception:
         pass

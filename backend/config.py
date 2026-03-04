@@ -13,6 +13,7 @@ DOWNLOAD_FOLDER = os.path.join(os.environ["USERPROFILE"], "Music")
 # --- RAG scanning paths ---
 
 RAG_PATHS = [Path("C:/Users/maxim")]
+# RAG_PATHS = [Path("C:/Users/maxim/RAG_TEST")]
 
 # --- Vector index storage ---
 
@@ -104,7 +105,7 @@ MODEL_CONFIG = {
     },
 }
 
-MAX_FILE_SIZE_MB = 5
+MAX_FILE_SIZE_MB = 20
 
 SECRET_PATTERNS = [
     r"api[_-]?key",

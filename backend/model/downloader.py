@@ -1,10 +1,16 @@
 import os
+import logging
 from huggingface_hub import hf_hub_download
 from dotenv import load_dotenv
 from pathlib import Path
 
+# Setup logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 BASE_DIR = Path(__file__).resolve().parents[2]
 MODEL_DIR = BASE_DIR / "backend" / "models"
+
 load_dotenv(BASE_DIR / ".env")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
@@ -45,9 +51,9 @@ def download_model(model_name: str):
                 local_dir_use_symlinks=False,
                 token=HF_TOKEN,
             )
-            print(f"[OK] {model_name} -> {filename}")
+            logger.info(f"[OK] {model_name} -> {filename}")
         except Exception as e:
-            print(f"[ERROR] {model_name} -> {filename} -> {e}")
+            logger.error(f"[ERROR] {model_name} -> {filename} -> {e}")
 
 
 if __name__ == "__main__":

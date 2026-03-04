@@ -1,6 +1,5 @@
-from sqlalchemy import Session
+from sqlalchemy.orm import Session
 from backend.model.models import Preferences
-from sqlalchemy.sql import func
 
 
 def get_preference(session: Session, pref_type: str):
@@ -9,7 +8,7 @@ def get_preference(session: Session, pref_type: str):
 
 def create_or_update_preference(
     session: Session,
-    pref_type,
+    pref_type: str,
     content: str,
     embedding: bytes = None,
     importance_score: float = 0.0,
@@ -17,7 +16,7 @@ def create_or_update_preference(
     pref = get_preference(session, pref_type)
     if pref:
         pref.content = content
-        pref.embeddings = embedding
+        pref.embedding = embedding
         pref.importance_score = importance_score
     else:
         pref = Preferences(

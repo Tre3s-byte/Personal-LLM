@@ -1,5 +1,4 @@
-# embeddings.py
-from typing import Union
+from typing import Union, List
 import numpy as np
 
 _embedding_service = None
@@ -11,7 +10,7 @@ class LocalEmbeddingService:
     ):
         self.model_name = model_name
         self.device = device
-        self.model = None  # do not load yet
+        self.model = None
 
     def _load_model(self):
         if self.model is None:
@@ -26,7 +25,7 @@ class LocalEmbeddingService:
         )
         return embedding.reshape(1, -1)
 
-    def embed_texts(self, texts: list[str]) -> np.ndarray:
+    def embed_texts(self, texts: List[str]) -> np.ndarray:
         self._load_model()
         return self.model.encode(
             texts, normalize_embeddings=True, convert_to_numpy=True
