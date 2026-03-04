@@ -10,28 +10,41 @@ from .patterns import (
 )
 from backend.utils.logging import app_logger
 
+INVALID_FOLDER_WORDS = {"download", "save", "store", "put", "move"}
 
-def extract_target_folder(text: str) -> str:
+
+def extract_target_folder(text: str) -> Optional[str]:
+    """
+    Extract folder if explicitly mentioned (after 'in', 'into', 'to', etc.).
+    Returns None if no valid folder is found or matched word is invalid.
+    """
     sanitized = YOUTUBE_URL_PATTERN.sub("", text)
     match = FOLDER_PATTERN.search(sanitized)
 
     if not match:
-        app_logger.info("No folder pattern matched; defaulting to 'Liked Songs'")
-        return "Liked Songs"
+        app_logger.info("No explicit folder found in text")
+        return None
 
     try:
         folder = match.group("folder").strip()
         folder = re.split(
-            r"\b(please|thanks|now|this|that|and|for)\b", folder, flags=re.IGNORECASE
+            r"\b(please|thanks|now|this|that|and|for|the)\b",
+            folder,
+            flags=re.IGNORECASE,
         )[0].strip()
 
-        folder_name = folder.title() if folder else "Liked Songs"
-        app_logger.info(f"Extracted folder name: {folder_name}")
+        # Ignore invalid folder names (verbs or generic actions)
+        if not folder or folder.lower() in INVALID_FOLDER_WORDS:
+            app_logger.info(f"Ignored invalid folder name: {folder}")
+            return None
+
+        folder_name = folder.title()
+        app_logger.info(f"Extracted explicit folder name: {folder_name}")
         return folder_name
 
     except Exception as e:
         app_logger.exception(f"Error extracting folder name: {e}")
-        return "Liked Songs"
+        return None
 
 
 def route_deterministic(text: str) -> Optional[Dict[str, Any]]:
@@ -47,7 +60,7 @@ def route_deterministic(text: str) -> Optional[Dict[str, Any]]:
         app_logger.info("No model directive found; using default 'small'")
 
     if has_url and has_action and not is_hypothetical:
-        folder_name = extract_target_folder(text)
+        folder_name = extract_target_folder(text)  # can be None
         app_logger.info(
             "Deterministic route matched youtube backup",
             extra={
@@ -55,16 +68,17 @@ def route_deterministic(text: str) -> Optional[Dict[str, Any]]:
                     "event": "route_deterministic_match",
                     "task_type": "youtube_backup",
                     "target_model": target_model,
-                    "target_folder": folder_name,
+                    "target_folder": folder_name or "(will use RAG/model to decide)",
                 }
             },
         )
         return {
             "task_type": "youtube_backup",
             "target_model": target_model,
-            "target_folder": folder_name,
+            "target_folder": folder_name,  # None if not explicit
             "chunk_strategy": None,
-            "requires_rag": False,
+            "requires_rag": folder_name is None,  # use RAG if folder unknown
             "is_recommended": True,
         }
+
     return None

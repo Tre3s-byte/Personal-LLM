@@ -26,6 +26,10 @@ async def handle_chat_request(request: Request):
 
         routing = route_request(messages)
         model_name = routing.get("target_model")
+        if routing.get("requires_rag") and rag_engine is not None:
+            messages = rag_context.inject_rag_context(
+                rag_engine, messages, request_id=request_id
+            )
 
         if routing.get("task_type") == "youtube_backup":
             return await youtube_task.handle_youtube_backup(
@@ -55,7 +59,15 @@ async def handle_chat_request(request: Request):
             messages = rag_context.inject_rag_context(
                 rag_engine, messages, request_id=request_id
             )
-            logger.info("RAG context injected", extra={"extra_data": {"event": "rag_context_injected", "request_id": request_id}})
+            logger.info(
+                "RAG context injected",
+                extra={
+                    "extra_data": {
+                        "event": "rag_context_injected",
+                        "request_id": request_id,
+                    }
+                },
+            )
         elif wants_rag and not rag_ready:
             logger.warning(
                 "RAG requested but engine is not ready; continuing without RAG context",
