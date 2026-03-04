@@ -86,7 +86,7 @@ MODEL_CONFIG = {
     },
     "medium": {
         "path": MODEL_MEDIUM_PATH,
-        "n_gpu_layers": 25,
+        "n_gpu_layers": 41,
         "n_ctx": SAFE_CTX_MEDIUM,
         "max_tokens": MAX_TOKENS_MEDIUM,
         "temperature": TEMPERATURE_MEDIUM,

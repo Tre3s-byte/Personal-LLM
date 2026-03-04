@@ -3,7 +3,6 @@ from backend.utils.logging import (
     log_inference_response,
     log_inference_telemetry,
 )
-import logging
 
 
 def log_request(request_id: str, prompt_text: str, model_name: str, strategy: str):
@@ -16,16 +15,11 @@ def log_request(request_id: str, prompt_text: str, model_name: str, strategy: st
 
 
 def log_response(request_id: str, response_text: str, model_name: str, latency: float):
-    logger = logging.getLogger("services.inference")
-    logger.info(
-        "inference_response_generated",
-        extra={
-            "request_id": request_id,
-            "response_text": response_text,
-            "model_used": model_name,
-            "inference_process_time": latency,
-            "event": "response_generated",
-        },
+    log_inference_response(
+        request_id=request_id,
+        response_text=response_text,
+        model_name=model_name,
+        inference_process_time=latency,
     )
 
 

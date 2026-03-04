@@ -1,4 +1,4 @@
-"""Structured JSON logging configuration and inference telemetry emitters."""
+"""Structured JSON logging configuration and telemetry emitters."""
 
 import json
 import logging
@@ -208,5 +208,75 @@ def log_inference_telemetry(
 
     telemetry_logger.info(
         "telemetry_recorded",
+        extra={"extra_data": _sanitize(payload)},
+    )
+
+
+def log_tool_execution_start(
+    *,
+    request_id: str,
+    tool_name: str,
+    started_at: str,
+    input_data: dict[str, Any] | None = None,
+):
+    payload = {
+        "event": "tool_execution_started",
+        "request_id": request_id,
+        "tool_name": tool_name,
+        "started_at": started_at,
+        "input": input_data or {},
+    }
+
+    telemetry_logger.info(
+        "tool_execution_started",
+        extra={"extra_data": _sanitize(payload)},
+    )
+
+
+def log_tool_execution_result(
+    *,
+    request_id: str,
+    tool_name: str,
+    started_at: str,
+    finished_at: str,
+    latency_seconds: float,
+    output_data: dict[str, Any] | None = None,
+):
+    payload = {
+        "event": "tool_execution_finished",
+        "request_id": request_id,
+        "tool_name": tool_name,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "latency_seconds": latency_seconds,
+        "output": output_data or {},
+    }
+
+    telemetry_logger.info(
+        "tool_execution_finished",
+        extra={"extra_data": _sanitize(payload)},
+    )
+
+
+def log_rag_index_access(
+    *,
+    request_id: str,
+    query: str,
+    top_k: int,
+    index_path: str,
+    retrieved_ids: list[int] | None = None,
+):
+    payload = {
+        "event": "rag_index_accessed",
+        "request_id": request_id,
+        "query": query,
+        "top_k": top_k,
+        "index_path": index_path,
+        "retrieved_ids": retrieved_ids or [],
+        "retrieved_count": len(retrieved_ids or []),
+    }
+
+    telemetry_logger.info(
+        "rag_index_accessed",
         extra={"extra_data": _sanitize(payload)},
     )

@@ -61,18 +61,22 @@ MODEL_DIRECTIVE_PATTERN = re.compile(
 
 
 def extract_target_folder(text: str) -> str:
+    # Remove any URLs first
+    text = YOUTUBE_URL_PATTERN.sub("", text)
+
     match = FOLDER_PATTERN.search(text)
     if not match:
         return "Liked Songs"
 
     folder = match.group(1).strip()
 
-    # Clean trailing words that are likely part of sentence structure
+    # Stop at common sentence continuations
     folder = re.split(
-        r"\b(please|thanks|now|this|that)\b", folder, flags=re.IGNORECASE
+        r"\b(please|thanks|now|this|that|and|for)\b",
+        folder,
+        flags=re.IGNORECASE,
     )[0]
 
-    # Normalize spacing
     folder = folder.strip()
 
     if not folder:

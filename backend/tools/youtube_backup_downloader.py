@@ -40,27 +40,67 @@ def build_ydl_opts(target_folder: str):
     }
 
 
+def _extract_song_titles(info: dict) -> list[str]:
+    if not info:
+        return []
+
+    if isinstance(info.get("entries"), list):
+        return [
+            entry.get("title")
+            for entry in info["entries"]
+            if isinstance(entry, dict) and entry.get("title")
+        ]
+
+    if info.get("title"):
+        return [info["title"]]
+
+    return []
+
+
 def download_url(url: str, folder: str = "Liked Songs"):
     ydl_opts = build_ydl_opts(folder)
+    folder_path = os.path.join(DOWNLOAD_FOLDER, folder)
 
     with YoutubeDL(ydl_opts) as ydl:
         try:
+            info = ydl.extract_info(url, download=False)
+            planned_songs = _extract_song_titles(info)
             ydl.download([url])
+            return {
+                "status": "success",
+                "download_folder": folder_path,
+                "downloaded_songs": planned_songs,
+                "downloaded_count": len(planned_songs),
+                "source_url": url,
+            }
         except Exception:
             print("Download error:")
             traceback.print_exc()
+            return {
+                "status": "error",
+                "download_folder": folder_path,
+                "downloaded_songs": [],
+                "downloaded_count": 0,
+                "source_url": url,
+            }
 
 
 def run_youtube_backup(url: str, folder: str = None):
     try:
         url = url.replace("music.youtube.com", "www.youtube.com")
         target_folder = folder if folder else "Liked Songs"
-        download_url(url, folder=target_folder)
-        return {"status": "success"}
+        result = download_url(url, folder=target_folder)
+        result["target_folder"] = target_folder
+        return result
     except Exception:
         print("FULL ERROR:")
         traceback.print_exc()
-        return {"status": "error"}
+        return {
+            "status": "error",
+            "target_folder": folder if folder else "Liked Songs",
+            "downloaded_songs": [],
+            "downloaded_count": 0,
+        }
 
 
 if __name__ == "__main__":

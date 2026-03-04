@@ -29,16 +29,22 @@ async def handle_chat_request(request: Request):
 
     # YouTube task
     if routing.get("task_type") == "youtube_backup":
-        return await youtube_task.handle_youtube_backup(messages[-1]["content"])
+        return await youtube_task.handle_youtube_backup(
+            messages[-1]["content"],
+            target_folder=routing.get("target_folder", "Liked Songs"),
+        )
 
     # RAG injection
+    # Logging and inference
+    request_id = str(uuid.uuid4())
     if routing.get("requires_rag"):
         if rag_engine is None:
             raise HTTPException(status_code=503, detail="RAG store not ready yet")
-        messages = rag_context.inject_rag_context(rag_engine, messages)
+        messages = rag_context.inject_rag_context(
+            rag_engine, messages, request_id=request_id
+        )
 
     # Logging and inference
-    request_id = str(uuid.uuid4())
     prompt_text = "\n".join([m["content"] for m in messages])
     inference_logger.log_request(
         request_id, prompt_text, model_name, routing.get("chunk_strategy")
